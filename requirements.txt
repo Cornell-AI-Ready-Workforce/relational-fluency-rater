@@ -1,0 +1,32 @@
+# Supported Python: 3.11, 3.12 or 3.13. 3.12 is what the production image
+# (Dockerfile) and the release leg of CI run; treat it as the reference. Same
+# range and same reference as relational-fluency (step 1), on purpose: one
+# researcher laptop runs both.
+#
+# Exact pins for reproducible production images: builds of the same git SHA
+# must resolve identical dependencies. Bump deliberately and re-test; do not
+# float.
+#
+# EVERY PACKAGE THIS FILE SHARES WITH relational-fluency IS PINNED TO THE SAME
+# VERSION THERE (relational-fluency@f9947d2:requirements.txt), and
+# tests/test_parity.py compares the two files when step 1 is checked out
+# beside this one. The two apps read and write the same study data through the
+# same SDK; a boto3 that differs between them is a difference in how one of them
+# talks to the bucket, found the day it matters. Move a shared pin in step 1
+# first, then here.
+#
+# Not here, though step 1 has them: anthropic, httpx, websockets, pyyaml. This
+# app calls no model, opens no websocket of its own and reads no YAML.
+# (websockets still arrives, under uvicorn[standard].)
+fastapi==0.141.1
+uvicorn[standard]==0.52.4
+python-dotenv==1.2.3
+pydantic==2.13.4
+boto3==1.43.78
+
+# Imported directly by server/, and therefore declared directly, even though
+# each also arrives transitively (anyio and starlette under fastapi, botocore
+# under boto3). Same reason, and same versions, as step 1.
+anyio==4.15.1
+starlette==1.6.0
+botocore==1.43.91

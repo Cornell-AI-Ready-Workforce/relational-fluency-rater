@@ -1,0 +1,18 @@
+# Allowlist, not a denylist (as in relational-fluency): code-only image;
+# secrets, data and dev artefacts cannot get in by accident. Keep this list and
+# the Dockerfile's COPY lines the same; tests/test_docker.py asserts it.
+*
+
+!requirements.txt
+!server
+!static
+
+# Re-excluded from inside the paths above.
+**/__pycache__
+**/*.pyc
+**/*.pyo
+**/.pytest_cache
+**/.DS_Store
+**/Thumbs.db
+**/.env
+**/.env.*

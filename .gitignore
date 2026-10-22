@@ -1,0 +1,24 @@
+.env
+.venv/
+venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.DS_Store
+.vscode/
+.idea/
+*.pem
+
+# Local data. With RATER_BUCKET unset the app writes its records here, and with
+# SOURCE_DIR set it reads step 1 sessions from a local copy; either can hold
+# participant data, so neither may reach git.
+data/
+
+# OpenTofu working dirs and state. State lives in the shared S3 backend.
+.terraform/
+.terraform.lock.hcl
+*.tfstate
+*.tfstate.*
+.terraformrc
+terraform.rc
+infra/terraform/tfplan.bin
