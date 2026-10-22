@@ -9,6 +9,7 @@ server/app.py; the places they differ say why.
 from __future__ import annotations
 
 import hashlib
+import hmac
 import html
 import os
 import re
@@ -20,12 +21,15 @@ from pathlib import Path
 from typing import Any, Dict, Optional
 
 from dotenv import load_dotenv
-from fastapi import Depends, FastAPI, HTTPException, Query, Request
-from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
+from fastapi import Body, Depends, FastAPI, HTTPException, Query, Request, Response
+from fastapi.responses import (FileResponse, HTMLResponse, JSONResponse, PlainTextResponse,
+                               RedirectResponse, StreamingResponse)
 from fastapi.staticfiles import StaticFiles
 from starlette.concurrency import run_in_threadpool
 from uvicorn.middleware.proxy_headers import ProxyHeadersMiddleware
 
+from . import items as _items
+from . import rating as _rating
 from . import source as _source
 from . import store as _store
 from .build_info import build_sha
@@ -360,6 +364,276 @@ def api_step1_encounters(participant_key: str, key: Optional[str] = None) -> dic
     return {"participant_key": participant_key, "source": src.kind,
             "encounters": src.encounters_for(participant_key)}
 
+
+
+# --- raters: sign-in, queue, rating screen ---------------------------------------------
+#
+# Step 2's task (decided 2026-10-22): trained team raters score step 1's
+# encounters. A researcher creates a rater (POST /api/raters) and hands them the
+# one-time link it returns; opening it sets the session cookie and redirects to
+# /rate, so the token leaves the address bar. Everything rater-facing is then
+# keyed by that cookie and by RATING CODES, never by step 1's ids
+# (server/rating.py says what a rater may and may not see).
+
+_SESSION_SECRET_FALLBACK = secrets.token_bytes(32)  # local only: sessions end with the process
+
+
+def _session_secret() -> bytes:
+    # Derived from the researcher key so the deployment needs no second secret;
+    # a different label, so the cookie signature is not the key itself.
+    if RESEARCHER_KEY:
+        return hmac.new(RESEARCHER_KEY.encode("utf-8"), b"rater-session", hashlib.sha256).digest()
+    return _SESSION_SECRET_FALLBACK
+
+
+def _rater_from(request: Request) -> Optional[str]:
+    return _rating.rater_id_from_cookie(request.cookies.get(_rating.COOKIE), _session_secret())
+
+
+def _require_rater(request: Request) -> str:
+    rid = _rater_from(request)
+    if not rid:
+        raise HTTPException(status_code=401, detail="Not signed in as a rater")
+    activity.touch(f"rater:{rid}")
+    return rid
+
+
+def _assignment_or_404(rater_id: str, code: str) -> Dict[str, Any]:
+    a = _rating.load_assignment(_store.get_store(), rater_id, code)
+    if a is None:
+        raise HTTPException(status_code=404, detail="Not found")
+    return a
+
+
+_NO_STORE = {"Cache-Control": "no-store", "X-Robots-Tag": "noindex"}
+
+
+@app.get("/rate", response_class=HTMLResponse)
+def rate_home(request: Request, token: Optional[str] = Query(None)):
+    if token:
+        rater = _rating.rater_for_token(_store.get_store(), token)
+        if rater is None:
+            return HTMLResponse(_page("rater-signin.html", message=html.escape(
+                "That link is not valid. Ask the study team for a new one.")),
+                status_code=401, headers=_NO_STORE)
+        resp = RedirectResponse("/rate", status_code=303)
+        resp.set_cookie(_rating.COOKIE, _rating.cookie_value(rater["rater_id"], _session_secret()),
+                        max_age=_rating.SESSION_SECONDS, httponly=True, samesite="lax",
+                        secure=request.url.scheme == "https", path="/")
+        return resp
+    rid = _rater_from(request)
+    if not rid:
+        return HTMLResponse(_page("rater-signin.html", message=html.escape(
+            "Open the link the study team gave you to see your queue.")), headers=_NO_STORE)
+    activity.touch(f"rater:{rid}")
+    return HTMLResponse(_page("queue.html", rater_id=html.escape(rid),
+                              build=html.escape(build_sha() or "")), headers=_NO_STORE)
+
+
+@app.get("/api/queue")
+def api_queue(request: Request) -> dict:
+    rid = _require_rater(request)
+    rows = _rating.queue_view(_rating.list_assignments(_store.get_store(), rid))
+    return {"rater_id": rid, "queue": rows, "done": sum(r["status"] == "done" for r in rows),
+            "total": len(rows)}
+
+
+@app.get("/rate/{code}", response_class=HTMLResponse)
+def rate_page(code: str, request: Request):
+    rid = _rater_from(request)
+    if not rid:
+        return RedirectResponse("/rate", status_code=303)
+    _assignment_or_404(rid, code)
+    activity.touch(f"rater:{rid}")
+    return HTMLResponse(_page("rate.html", code=html.escape(code), rater_id=html.escape(rid),
+                              build=html.escape(build_sha() or "")), headers=_NO_STORE)
+
+
+def _transcript_rows(session_id: str) -> Dict[str, Any]:
+    """Turns as the rater sees them: time, Participant or Character n, text."""
+    src = _source.get_source()
+    rec = src.record(session_id) or {}
+    cast = [c.get("id") for c in (rec.get("cast") or []) if isinstance(c, dict)]
+    label: Dict[str, str] = {}
+    for turn in rec.get("transcript") or []:
+        aid = turn.get("agent_id")
+        if turn.get("role") not in ("participant", "user") and aid and aid not in label:
+            if aid not in cast:
+                cast.append(aid)
+    for i, aid in enumerate(cast, 1):
+        label[aid] = f"Character {i}" if len(cast) > 1 else "Character"
+    rows = []
+    for turn in rec.get("transcript") or []:
+        text = (turn.get("text") or "").strip()
+        is_participant = turn.get("role") in ("participant", "user")
+        rows.append({"t": float(turn.get("t") or 0.0),
+                     "who": "Participant" if is_participant else label.get(turn.get("agent_id"), "Character"),
+                     "text": text})
+    tr = src.transcript(session_id)
+    return {"rows": rows, "participant_source": tr.get("participant_source"),
+            "characters": len(cast)}
+
+
+@app.get("/api/rate/{code}")
+def api_rate(code: str, request: Request) -> dict:
+    rid = _require_rater(request)
+    store = _store.get_store()
+    a = _assignment_or_404(rid, code)
+    sid = a["step1"]["session_ids"][0]
+    src = _source.get_source()
+    try:
+        transcript = _transcript_rows(sid)
+        media = src.media_choice(sid)
+    except Exception as exc:  # step 1 unreachable: say so, nothing else
+        print(f"  ERROR: step 1 source unavailable for {code}: {type(exc).__name__}: {exc}")
+        raise HTTPException(status_code=503, detail="Recordings are unavailable right now; try again shortly.")
+    queue = _rating.queue_view(_rating.list_assignments(store, rid))
+    draft = store.get(_rating.draft_key(rid, code)) or {}
+    return {
+        "code": code, "rater_id": rid,
+        "position": a["data"]["position"], "total": len(queue), "status": a["data"]["status"],
+        "media": ({"kind": media["kind"], "url": f"/rate/{code}/media"} if media else None),
+        "transcript": transcript["rows"], "characters": transcript["characters"],
+        "items": _rating.item_order(rid, code),
+        "scale": [{"value": n, "label": l} for n, l in _items.SCALE] +
+                 [{"value": _items.NA, "label": _items.NA_LABEL}],
+        "draft": {"scores": draft.get("scores") or {}, "comments": draft.get("comments") or {}},
+    }
+
+
+@app.put("/api/rate/{code}/draft")
+def api_rate_draft(code: str, request: Request, payload: Any = Body(...)) -> dict:
+    rid = _require_rater(request)
+    a = _assignment_or_404(rid, code)
+    if a["data"]["status"] == "done":
+        raise HTTPException(status_code=409, detail="Already submitted")
+    try:
+        scores, comments = _rating.validate_submission(payload, complete=False)
+    except _rating.RatingError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
+    _store.get_store().put(_rating.draft_key(rid, code), {
+        "kind": "draft", "schema": 1, "rater_id": rid, "code": code, "scores": scores,
+        "comments": comments, "saved_at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())})
+    return {"saved": True, "answered": len(scores), "of": len(_items.item_keys())}
+
+
+@app.post("/api/rate/{code}/submit", status_code=201)
+def api_rate_submit(code: str, request: Request, payload: Any = Body(...)) -> dict:
+    rid = _require_rater(request)
+    store = _store.get_store()
+    a = _assignment_or_404(rid, code)
+    if a["data"]["status"] == "done" or store.get(_rating.rating_key(rid, code)) is not None:
+        raise HTTPException(status_code=409, detail="Already submitted")
+    try:
+        scores, comments = _rating.validate_submission(payload, complete=True)
+    except _rating.RatingError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
+    sid = a["step1"]["session_ids"][0]
+    src = _source.get_source()
+    try:
+        media = src.media_choice(sid)
+        tsrc = src.transcript(sid).get("participant_source")
+    except Exception:
+        media, tsrc = None, None
+    rec = _rating.rating_record(a, scores, comments, media_kind=media["kind"] if media else None,
+                                transcript_source=tsrc)
+    if not store.put(_rating.rating_key(rid, code), rec, create_only=True):
+        raise HTTPException(status_code=409, detail="Already submitted")
+    a["data"]["status"] = "done"
+    a["data"]["done_at"] = rec["created_at"]
+    store.put(_rating.assignment_key(rid, code), a)
+    activity.end(f"rater:{rid}")
+    return {"submitted": True, "code": code, "record_id": rec["record_id"]}
+
+
+@app.get("/rate/{code}/media")
+def rate_media(code: str, request: Request):
+    """The recording for a code, streamed by this app so the step 1 object key
+    (which carries the session id) never reaches the browser."""
+    rid = _require_rater(request)
+    a = _assignment_or_404(rid, code)
+    sid = a["step1"]["session_ids"][0]
+    src = _source.get_source()
+    choice = src.media_choice(sid)
+    if choice is None:
+        raise HTTPException(status_code=404, detail="No recording")
+    local = src.media_local_path(sid, choice["name"])
+    if local is not None:
+        return FileResponse(local, media_type=choice["content_type"], headers=_NO_STORE)
+    resp = src.media_stream(sid, choice["name"], request.headers.get("range"))
+    if resp is None:
+        raise HTTPException(status_code=404, detail="No recording")
+    if resp.get("status") == 416:
+        return Response(status_code=416, headers={"Content-Range": f"bytes */{choice['size']}"})
+    headers = {**_NO_STORE, "Accept-Ranges": "bytes",
+               "Content-Length": str(resp.get("ContentLength") or "")}
+    if resp.get("ContentRange"):
+        headers["Content-Range"] = resp["ContentRange"]
+    return StreamingResponse(resp["Body"].iter_chunks(1 << 16),
+                             status_code=206 if resp.get("ContentRange") else 200,
+                             media_type=choice["content_type"], headers=headers)
+
+
+# --- researcher API: raters, assignments, ratings -----------------------------------------
+
+@app.post("/api/raters", status_code=201)
+def api_raters_create(key: Optional[str] = None, payload: Dict[str, Any] = Body(...)) -> dict:
+    check_key(key)
+    try:
+        rec, token = _rating.new_rater(_store.get_store(), str(payload.get("rater_id") or ""),
+                                       str(payload.get("display_name") or ""))
+    except _rating.RatingError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
+    return {"rater": _rating.public_rater(rec), "token": token,
+            "link": f"https://{APP_HOST}/rate?token={token}",
+            "note": "The token is shown once and stored only as a digest."}
+
+
+@app.get("/api/raters")
+def api_raters_list(key: Optional[str] = None) -> dict:
+    check_key(key)
+    store = _store.get_store()
+    out = []
+    for r in _rating.list_raters(store):
+        q = _rating.queue_view(_rating.list_assignments(store, r["rater_id"]))
+        out.append({**_rating.public_rater(r), "assigned": len(q),
+                    "done": sum(x["status"] == "done" for x in q)})
+    return {"raters": out, "count": len(out)}
+
+
+@app.post("/api/assignments", status_code=201)
+def api_assignments_create(key: Optional[str] = None, payload: Dict[str, Any] = Body(...)) -> dict:
+    """{"rater_id": ..., "session_ids": [...]}: give a rater these step 1 encounters."""
+    check_key(key)
+    try:
+        return _rating.assign(_store.get_store(), _source.get_source(),
+                              str(payload.get("rater_id") or ""), payload.get("session_ids"))
+    except _rating.RatingError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
+
+
+@app.get("/api/assignments")
+def api_assignments_list(key: Optional[str] = None, rater_id: Optional[str] = None) -> dict:
+    check_key(key)
+    store = _store.get_store()
+    raters = [rater_id] if rater_id else [r["rater_id"] for r in _rating.list_raters(store)]
+    out = []
+    for rid in raters:
+        for a in _rating.list_assignments(store, rid):
+            out.append({**a["data"], "step1": a["step1"], "cohort": a["cohort"],
+                        "assigned_at": a["created_at"]})
+    return {"assignments": out, "count": len(out)}
+
+
+@app.get("/api/ratings")
+def api_ratings(key: Optional[str] = None, format: str = "json"):
+    check_key(key)
+    store = _store.get_store()
+    recs = [r for r in (store.get(k) for k in store.list_keys("ratings/")) if r and r.get("kind") == "rating"]
+    if format == "csv":
+        return PlainTextResponse(_rating.ratings_csv(recs), media_type="text/csv",
+                                 headers={"Content-Disposition": 'attachment; filename="ratings.csv"'})
+    return {"ratings": recs, "count": len(recs), "store": store.kind}
 
 # --- startup ------------------------------------------------------------------------
 

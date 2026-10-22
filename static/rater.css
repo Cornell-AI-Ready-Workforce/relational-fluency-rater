@@ -1,0 +1,66 @@
+/* The rater's screens: queue and rating. Colours and type come from theme.css
+   (step 1's tokens); this file only lays them out. Linked after theme.css by
+   queue.html and rate.html. */
+
+/* --- queue ------------------------------------------------------------------ */
+.queue { width: 100%; max-width: 720px; }
+.queue ol { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
+.queue li { display: flex; align-items: center; gap: 14px; padding: 12px 16px;
+  background: var(--surface); border: 1px solid var(--line-soft); border-radius: 10px; }
+.queue .pos { font-family: ui-monospace, Menlo, monospace; font-size: 12px; color: var(--muted); width: 2.5em; }
+.queue .code { font-family: ui-monospace, Menlo, monospace; font-weight: 600; flex: 1; }
+.queue .state { font-size: 12px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: var(--muted); }
+.queue .state.done { color: var(--accent-deep); }
+.queue a.go { text-decoration: none; }
+.queue .empty { color: var(--muted); font-size: 15px; }
+
+/* --- rating screen ---------------------------------------------------------- */
+.rate { width: 100%; max-width: 1240px; display: grid; grid-template-columns: minmax(0, 7fr) minmax(0, 5fr);
+  gap: 18px; align-items: start; }
+.rate > section { min-width: 0; }
+.panel { background: var(--surface); border: 1px solid var(--line-soft); border-radius: 12px; padding: 16px 18px; }
+.panel h2 { font-size: 15px; margin: 0 0 10px; }
+.note { font-size: 13px; color: var(--muted); margin: 0 0 10px; line-height: 1.5; }
+
+.media video, .media audio { width: 100%; max-height: 420px; background: var(--tile-bg); border-radius: 8px; display: block; }
+.media audio { background: transparent; }
+.media .nomedia { padding: 28px; text-align: center; color: var(--muted); border: 1px dashed var(--line-strong); border-radius: 8px; }
+.controls { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-top: 10px; }
+.controls .clock { font-family: ui-monospace, Menlo, monospace; font-size: 13px; color: var(--muted); margin-left: auto; }
+.controls button { padding: 8px 14px; font-size: 13px; }
+
+.transcript { margin-top: 14px; max-height: 46vh; overflow-y: auto; border-top: 1px solid var(--line-soft); }
+.transcript table { width: 100%; border-collapse: collapse; font-size: 14px; }
+.transcript tr { cursor: pointer; }
+.transcript tr:hover td { background: var(--bg); }
+.transcript tr.now td { background: var(--accent-soft); }
+.transcript td { padding: 7px 8px; vertical-align: top; border-bottom: 1px solid var(--line-soft); line-height: 1.5; }
+.transcript td.t { width: 4.5em; font-family: ui-monospace, Menlo, monospace; font-size: 12px; color: var(--muted); }
+.transcript td.who { width: 7.5em; font-weight: 600; font-size: 13px; }
+.transcript tr.participant td.who { color: var(--accent-deep); }
+
+.progress { font-size: 13px; color: var(--muted); margin: 0 0 12px; font-variant-numeric: tabular-nums; }
+.items { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 10px; }
+.item { padding: 10px 0; border-bottom: 1px solid var(--line-soft); }
+.item .q { font-size: 14px; line-height: 1.45; margin: 0 0 8px; }
+.item .q .n { color: var(--muted); font-variant-numeric: tabular-nums; margin-right: 6px; }
+.choices { display: flex; flex-wrap: wrap; gap: 6px; }
+.choices button { padding: 7px 10px; font-size: 13px; border-radius: 8px; background: var(--surface); color: var(--fg);
+  border: 1px solid var(--line-strong); min-width: 2.4em; }
+.choices button:hover:not(:disabled) { background: var(--surface-2); }
+.choices button[aria-pressed="true"] { background: var(--tile-bg); color: var(--fg-on-dark); border-color: var(--tile-bg); }
+.choices button.na { margin-left: auto; }
+.scale { display: flex; flex-wrap: wrap; gap: 4px 14px; font-size: 12px; color: var(--muted); margin: 0 0 12px; }
+.scale b { color: var(--fg); font-weight: 600; }
+.comments label { display: block; font-size: 14px; font-weight: 600; margin: 12px 0 6px; }
+.comments textarea { width: 100%; min-height: 72px; padding: 9px 11px; border: 1px solid var(--line-strong);
+  border-radius: 8px; font: inherit; font-size: 14px; color: var(--fg); background: var(--surface); resize: vertical; }
+.submit { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; margin-top: 16px; }
+.submit .status { font-size: 13px; color: var(--muted); }
+.submit .err { color: var(--accent); font-size: 14px; }
+.done-card h2 { font-size: 17px; margin: 0 0 10px; }
+
+@media (max-width: 900px) {
+  .rate { grid-template-columns: 1fr; }
+  .transcript { max-height: 36vh; }
+}

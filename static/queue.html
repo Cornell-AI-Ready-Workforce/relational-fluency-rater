@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<link rel="icon" type="image/png" href="/static/favicon.png" />
+<link rel="apple-touch-icon" href="/static/apple-touch-icon.png" />
+<title>Relational Fluency</title>
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<meta name="robots" content="noindex, nofollow" />
+<link rel="preload" href="/static/fonts/inter-latin-wght-normal.woff2" as="font" type="font/woff2" crossorigin />
+<link rel="stylesheet" href="/static/theme.css" />
+<link rel="stylesheet" href="/static/rater.css" />
+</head>
+<body>
+<header>
+  <div class="brand"><img src="/static/logo.png" alt="" /><h1 class="title">Relational Fluency</h1></div>
+  <div class="meta">Rater {{rater_id}}</div>
+</header>
+<main>
+  <section class="queue" aria-labelledby="h">
+    <h2 id="h" style="font-size:17px;margin:0 0 6px">Your queue</h2>
+    <p class="note">Each code is one recorded conversation. Codes carry no name, date or id. If you recognise a participant, stop and tell the study team.</p>
+    <p class="progress" id="progress">Loading…</p>
+    <ol id="list"></ol>
+  </section>
+</main>
+<div class="build-tag">{{build}}</div>
+<script>
+(async function () {
+  var list = document.getElementById('list'), progress = document.getElementById('progress');
+  var r = await fetch('/api/queue', { headers: { 'Accept': 'application/json' } });
+  if (r.status === 401) { location.href = '/rate'; return; }
+  var q = await r.json();
+  progress.textContent = q.done + ' of ' + q.total + ' rated';
+  if (!q.queue.length) {
+    var li = document.createElement('li'); li.className = 'empty';
+    li.textContent = 'Nothing is assigned to you yet.'; list.appendChild(li); return;
+  }
+  q.queue.forEach(function (row) {
+    var li = document.createElement('li');
+    var pos = document.createElement('span'); pos.className = 'pos'; pos.textContent = row.position;
+    var code = document.createElement('span'); code.className = 'code'; code.textContent = row.code;
+    var st = document.createElement('span'); st.className = 'state ' + row.status;
+    st.textContent = row.status === 'done' ? 'rated' : 'to rate';
+    var a = document.createElement('a'); a.className = 'go'; a.href = '/rate/' + encodeURIComponent(row.code);
+    var b = document.createElement('button'); b.type = 'button';
+    if (row.status === 'done') b.className = 'secondary';
+    b.textContent = row.status === 'done' ? 'Review' : 'Rate';
+    a.appendChild(b);
+    li.appendChild(pos); li.appendChild(code); li.appendChild(st); li.appendChild(a);
+    list.appendChild(li);
+  });
+})();
+</script>
+</body>
+</html>
