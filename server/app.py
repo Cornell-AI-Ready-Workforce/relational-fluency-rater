@@ -18,7 +18,7 @@ from typing import Dict, Optional
 
 from dotenv import load_dotenv
 from fastapi import FastAPI, HTTPException, Query
-from fastapi.responses import JSONResponse
+from fastapi.responses import HTMLResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from uvicorn.middleware.proxy_headers import ProxyHeadersMiddleware
 
@@ -147,6 +147,13 @@ async def health(key: Optional[str] = Query(None)) -> dict:
         # local checkout. tools/check_prod_build.py compares it with the pin.
         "build": build_sha(),
     }
+
+
+# --- pages ------------------------------------------------------------------------
+
+@app.get("/", response_class=HTMLResponse)
+async def landing_page() -> HTMLResponse:
+    return HTMLResponse((STATIC_DIR / "landing.html").read_text(encoding="utf-8"))
 
 
 # --- startup ------------------------------------------------------------------------

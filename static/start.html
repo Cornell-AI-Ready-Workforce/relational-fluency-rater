@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<link rel="icon" type="image/png" href="/static/favicon.png" />
+<link rel="apple-touch-icon" href="/static/apple-touch-icon.png" />
+<title>Relational Fluency</title>
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<meta name="robots" content="noindex, nofollow" />
+<link rel="preload" href="/static/fonts/inter-latin-wght-normal.woff2" as="font" type="font/woff2" crossorigin />
+<link rel="stylesheet" href="/static/theme.css" />
+</head>
+<body>
+<header>
+  <div class="brand"><img src="/static/logo.png" alt="" /><h1 class="title">Relational Fluency</h1></div>
+</header>
+<main>
+  <!-- The entry check page. A GET of the entry link that is a preview, a
+       scanner or carries no usable participant key gets this instead of a
+       record; a person presses Continue, which POSTs the same parameters.
+       Same rule as relational-fluency's /start. -->
+  <form class="card" method="post" action="/start" aria-labelledby="h">
+    <h2 id="h">Continue to the study</h2>
+    <p class="body">{{message}}</p>
+    {{hidden}}
+    <div class="actions"><button type="submit">Continue</button></div>
+  </form>
+</main>
+</body>
+</html>

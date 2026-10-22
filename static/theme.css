@@ -1,0 +1,158 @@
+/* Provenance: extracted from relational-fluency@f9947d2:static/v2.html
+   (the participant page): @font-face 11-17, :root 18-35, base 36-43, header
+   44-49, .brief 57-90, buttons 224-245, select 246-247, focus 248-258,
+   .sr-only 480-481, card and fields 483-495, .build-tag 497-500, phone
+   sizes 510-520 and 565-580, coarse pointer 584-587, reduced motion 596-598.
+   v2.html is the source, not landing.html or researcher.html: those carry
+   older copies of the palette without --line-strong. Values and the reasons
+   for them are kept as they are; .card is v2's .consent-card under a generic
+   name. tests/test_theme.py compares the :root block with v2.html.
+
+   Every page of this app links this file and nothing else from elsewhere. */
+
+/* Inter (SIL OFL, static/fonts/LICENSE-Inter.txt), served by this app and
+   not by a font CDN, so a participant's browser contacts nobody else. The
+   Latin subset; a character outside it is drawn in the system font. */
+@font-face { font-family: "Inter"; font-style: normal; font-weight: 100 900; font-display: swap;
+  src: url("/static/fonts/inter-latin-wght-normal.woff2") format("woff2");
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308,
+    U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD; }
+:root {
+  --bg:        #ededec;
+  --surface:   #ffffff;
+  --surface-2: #d7d8d7;
+  --tile-bg:   #2f2f2f;
+  --tile-bg-active: #b3181b;
+  --line:      #b8b9b6;
+  /* The edge of a control (a field, a select, a secondary button), which
+     has to be seen to be found: 3:1 and more. --line is 1.68:1 on --bg. */
+  --line-strong:#858683;
+  --line-soft: #d0d1ce;
+  --fg:        #2f2f2f;
+  --fg-on-dark:#f5f5f4;
+  --muted:     #6a6a68;
+  --accent:    #b3181b;
+  --accent-deep:#951417;
+  --accent-soft:#f1dcdc;
+}
+* { box-sizing: border-box; }
+html { -webkit-text-size-adjust: 100%; }
+body { margin:0; font-family: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+       background: var(--bg); color: var(--fg); -webkit-font-smoothing: antialiased;
+       min-height: 100vh; min-height: 100svh; display: flex; flex-direction: column; }
+/* Inter is drawn for text sizes; a heading is tightened a little, as the
+   typeface's own spacing guide has it for 16px and up. */
+h1, h2 { letter-spacing: -0.011em; }
+
+/* --- header ------------------------------------------------------------- */
+header { padding: 14px 20px 10px; border-bottom: 1px solid var(--line-soft); background: var(--surface);
+         display: flex; justify-content: space-between; align-items: center; gap: 16px; }
+/* The page's one h1: what the page is about, for a screen reader's list of
+   headings. It looks as the plain line it was. */
+header .title { font-size: 16px; font-weight: 600; margin: 0; }
+header .meta { font-size: 12px; color: var(--muted); font-family: ui-monospace, Menlo, monospace; }
+/* The logo is decorative beside the title (alt=""), 28px tall. */
+header .brand { display: flex; align-items: center; gap: 10px; }
+header .brand img { height: 28px; width: auto; }
+
+main { flex: 1; display: flex; flex-direction: column; align-items: center; padding: 24px 20px; gap: 18px; }
+
+/* --- brief (a reading panel) ---------------------------------------------- */
+.brief {
+  padding: 18px 20px;
+  background: #ffffff;
+  border: 1px solid var(--line-soft);
+  border-radius: 12px;
+  box-shadow: 0 1px 0 rgba(47,47,47,0.03), 0 4px 14px rgba(47,47,47,0.04);
+  overflow-y: auto;
+  max-height: 560px;
+}
+/* 15px for what it says, 12px and more for its labels. */
+.brief .label, .label {
+  font-size: 12px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase;
+  color: var(--accent); margin: 0 0 8px;
+}
+.brief .body {
+  font-size: 15px; line-height: 1.6; color: var(--fg); white-space: pre-wrap;
+  margin: 0 0 12px;
+}
+.brief .cast-line {
+  font-size: 13px; color: var(--muted);
+  border-top: 1px solid var(--line-soft); padding-top: 10px; margin-top: 10px;
+}
+.brief .cast-line strong { color: var(--fg); font-weight: 600; }
+
+/* --- card (v2's consent card) ---------------------------------------------- */
+.card { background: var(--surface); border: 1px solid var(--line-soft); border-radius: 14px;
+        max-width: 620px; width: 100%; padding: 26px 28px; overflow-y: auto;
+        box-shadow: 0 24px 60px rgba(47,47,47,0.18); }
+.card h2 { font-size: 17px; margin: 0 0 14px; }
+.card .body { font-size: 15px; line-height: 1.6; white-space: pre-wrap; }
+.card label { display: flex; gap: 10px; align-items: flex-start; margin: 18px 0 6px; font-size: 15px; cursor: pointer; }
+.card label input { margin-top: 3px; accent-color: var(--accent); }
+.card .code-row { display:flex; gap:10px; align-items:center; margin: 16px 0; }
+.card .code-row input { padding: 9px 11px; border: 1px solid var(--line-strong); border-radius: 8px; font: inherit; flex: 1; background: var(--surface); color: var(--fg); }
+.card .actions { display:flex; flex-wrap: wrap; gap:8px; justify-content:flex-end; margin-top: 14px; }
+.card .err { color: var(--accent); font-size: 14px; min-height: 18px; margin-top: 4px; }
+
+/* --- controls ----------------------------------------------------------------- */
+/* The weight after the font shorthand, which resets it: every button was
+   rendering at 400. */
+button { padding: 11px 22px; border: 0; border-radius: 10px; background: var(--accent);
+         color: #fff; cursor: pointer; font: inherit; font-weight: 600; font-size: 14px;
+         transition: background 0.15s, transform 0.05s; }
+button:hover:not(:disabled) { background: var(--accent-deep); }
+button:active:not(:disabled) { transform: translateY(1px); }
+button.secondary { background: var(--surface); color: var(--fg); border: 1px solid var(--line-strong); }
+/* A secondary button stays readable under the pointer: the primary's hover
+   would otherwise put dark red behind dark text (1.5:1). */
+button.secondary:hover:not(:disabled) { background: var(--surface-2); }
+/* One look for a control that cannot be used now, whatever the reason. Its
+   label darker than --muted, which on this grey is 3.79:1: #4a4a48 is 6.2:1. */
+button:disabled { opacity: 1; background: var(--surface-2);
+  color: #4a4a48; border-color: var(--line-soft); cursor: not-allowed; }
+/* Except work in progress, which is not unavailable, only not done yet. */
+button[aria-busy="true"]:disabled { background: var(--accent); color: #fff; cursor: progress; }
+select { padding: 9px 11px; border: 1px solid var(--line-strong); border-radius: 10px;
+         background: var(--surface); font: inherit; font-size: 13px; color: var(--fg); cursor: pointer; }
+/* One focus ring for every control, for the keyboard. Ink, set off from the
+   control, so it shows on the red primary and the white secondary alike, and
+   red here means a fault; on a dark tile it is white. */
+button:focus-visible, select:focus-visible, input:focus-visible, a:focus-visible,
+[tabindex="0"]:focus-visible {
+  outline: 2px solid var(--fg); outline-offset: 2px; }
+.tile :focus-visible { outline-color: var(--fg-on-dark); }
+/* A card takes focus itself when it opens, so a screen reader names it; it is
+   where focus starts, not a control, so it has no ring. */
+[tabindex="-1"]:focus { outline: none; }
+a { color: var(--accent-deep); }
+
+/* Read by a screen reader and not shown. */
+.sr-only { position: absolute; width: 1px; height: 1px; margin: -1px; padding: 0; border: 0;
+  overflow: hidden; clip: rect(0 0 0 0); clip-path: inset(50%); white-space: nowrap; }
+
+/* The build tag: for a bug report or a screenshot, small and muted. Not faded
+   as well: at .75 it was 2.91:1; muted on the page is 4.63:1. */
+.build-tag { padding: 0 20px 10px; text-align: right; font-size: 11px; color: var(--muted);
+  font-family: ui-monospace, Menlo, monospace; user-select: all; }
+
+/* --- small screens and touch ------------------------------------------------- */
+@media (max-width: 640px) {
+  header .title { font-size: 15px; }
+  header .meta { font-size: 11px; }
+  /* 44px touch targets, and no smaller than on a desktop. */
+  button { padding: 10px 16px; font-size: 15px; min-height: 44px; }
+  main { padding: 14px; gap: 14px; }
+  /* Reading size: 16px for body text, nothing below 12px. */
+  .brief .body, .card .body, .card label { font-size: 16px; }
+  .brief .cast-line { font-size: 14px; }
+}
+/* A touch screen wider than that is tapped too, so it gets the same 44px
+   targets. */
+@media (pointer: coarse) {
+  button { min-height: 44px; }
+}
+/* Somebody who has asked their system for less motion gets none. */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation: none !important; transition: none !important; }
+}
