@@ -381,6 +381,23 @@ def _refuse_unprotected_public_start() -> Optional[str]:
               "Set RESEARCHER_KEY, or bind HOST=127.0.0.1.")
 
 
+def _refuse_public_start_without_buckets() -> Optional[str]:
+    """A process reachable from elsewhere must read step 1 from its bucket and
+    write to this app's. Without RATER_BUCKET records would go to the
+    container's disk, which the next deploy destroys (and which is read-only
+    in production, so every entry would fail)."""
+    host = os.getenv("HOST", "127.0.0.1").strip()
+    local = ("localhost", "127.0.0.1", "::1", "testserver")
+    if host in ("127.0.0.1", "localhost", "::1", "") or (
+            ALLOWED_HOSTS and all(h in local for h in ALLOWED_HOSTS)):
+        return None
+    missing = [n for n in ("SOURCE_BUCKET", "RATER_BUCKET") if not os.getenv(n, "").strip()]
+    if missing:
+        return (f"{' and '.join(missing)} unset on a public bind ({host}); this deployment "
+                f"would not read step 1 from S3 or would write records to local disk.")
+    return None
+
+
 def main() -> int:
     import uvicorn
 
@@ -389,7 +406,7 @@ def main() -> int:
             stream.reconfigure(encoding="utf-8")
         except (AttributeError, ValueError):
             pass
-    why = _refuse_unprotected_public_start()
+    why = _refuse_unprotected_public_start() or _refuse_public_start_without_buckets()
     if why:
         print(f"REFUSING TO START: {why}", file=sys.stderr)
         return 2

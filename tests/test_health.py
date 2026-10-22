@@ -54,3 +54,15 @@ def test_refuses_public_start_without_key(monkeypatch):
     monkeypatch.setattr(appmod, "RESEARCHER_KEY", "k")
     monkeypatch.setenv("HOST", "0.0.0.0")
     assert appmod._refuse_unprotected_public_start() is None
+
+
+def test_public_start_needs_both_buckets(monkeypatch):
+    monkeypatch.setenv("HOST", "0.0.0.0")
+    monkeypatch.setattr(appmod, "ALLOWED_HOSTS", ["rater.ai-ready-workforce.ai.cornell.edu"])
+    assert "SOURCE_BUCKET and RATER_BUCKET" in appmod._refuse_public_start_without_buckets()
+    monkeypatch.setenv("SOURCE_BUCKET", "relational-fluency-study-data")
+    monkeypatch.setenv("RATER_BUCKET", "relational-fluency-rater-study-data")
+    assert appmod._refuse_public_start_without_buckets() is None
+    monkeypatch.delenv("RATER_BUCKET")
+    monkeypatch.setattr(appmod, "ALLOWED_HOSTS", ["localhost", "127.0.0.1"])
+    assert appmod._refuse_public_start_without_buckets() is None  # docker run locally
