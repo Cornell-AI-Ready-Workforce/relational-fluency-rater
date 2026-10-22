@@ -1,0 +1,42 @@
+# Is production running the build main pins? Once a day, and on demand.
+# Adapted from relational-fluency@f9947d2:.github/workflows/prod-build-drift.yml.
+#
+# Compares GET /health "build" (server/build_info.py, baked into the image with
+# --build-arg BUILD_SHA) with the container_image tag pinned in main's
+# infra/terraform/terraform.tfvars; tools/check_prod_build.py is the logic and
+# tests/test_check_prod_build.py holds it. Green with nothing to compare while
+# the pin is empty (before the first release).
+#
+# No secrets and read-only permissions on purpose: /health is public. Checks out
+# main explicitly, so a manual run from another branch cannot compare
+# production with that branch's pin.
+#
+# GitHub disables scheduled workflows in a repository with no activity for 60
+# days; if this stops appearing in the Actions tab, re-enable it there.
+
+name: prod-build-drift
+
+on:
+  schedule:
+    # 11:23 UTC, a few minutes after step 1's check (11:17), before a
+    # collection day starts.
+    - cron: "23 11 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  compare:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: main
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+      # Standard library only: nothing to install.
+      - name: Production build matches main's pin
+        run: python tools/check_prod_build.py

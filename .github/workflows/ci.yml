@@ -1,0 +1,62 @@
+# Tests on every push and pull request. Adapted from relational-fluency's CI:
+# the same Python matrix (3.12 is the reference; 3.11 and 3.13 are supported),
+# an import check, and the suite with every skip required to say why. Plus the
+# OpenTofu stack: fmt and validate, with no backend and no credentials.
+#
+# Step 1 is checked out beside this repository (read-only, at main) so
+# tests/test_parity.py compares the copied conventions, pins and assets with
+# their source on every run instead of skipping.
+
+name: CI
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.11", "3.12", "3.13"]
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          path: relational-fluency-rater
+      # Public repository; read-only checkout for the parity tests.
+      - uses: actions/checkout@v5
+        with:
+          repository: Cornell-AI-Ready-Workforce/relational-fluency
+          ref: main
+          path: relational-fluency
+      - uses: actions/setup-python@v6
+        with:
+          python-version: ${{ matrix.python-version }}
+      - name: Install dependencies
+        working-directory: relational-fluency-rater
+        # pytest and httpx2 are not in requirements.txt: that file is the image.
+        run: |
+          pip install -r requirements.txt
+          pip install pytest httpx2
+      - name: Import check
+        working-directory: relational-fluency-rater
+        run: python -c "import server.app; print('server.app imports OK')"
+      - name: Test suite
+        working-directory: relational-fluency-rater
+        run: python -m pytest tests -q -rs
+
+  tofu:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: opentofu/setup-opentofu@v1
+      - name: fmt
+        run: tofu -chdir=infra/terraform fmt -check -recursive
+      - name: validate (no backend, no credentials)
+        run: |
+          tofu -chdir=infra/terraform init -backend=false -input=false
+          tofu -chdir=infra/terraform validate

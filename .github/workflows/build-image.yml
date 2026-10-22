@@ -1,0 +1,91 @@
+# Builds this app's image (the root Dockerfile) and pushes it to ECR tagged
+# with the commit SHA. Adapted from relational-fluency@f9947d2:
+# .github/workflows/build-platform-image.yml.
+#
+# Manual-only, as in step 1: building an image is safe at any time, and what
+# follows it is the release runbook (docs/OPERATIONS.md, "Releasing a build"):
+# pin the tag by PR in terraform.tfvars, plan with tools/deploy.sh from main,
+# and apply by hand. Never `tofu apply -var container_image=...`.
+#
+# Requires repo secret AWS_ROLE_ARN: an OIDC role that THIS repository may
+# assume, with push rights on relational-fluency-rater/app and
+# ecr:DescribeImages (docs/DEPLOY-AWS.md, "What the deploy identities need").
+# Region comes from the AWS_REGION repo variable, defaulting to us-east-1.
+
+name: build-image
+
+on:
+  workflow_dispatch:
+
+permissions:
+  id-token: write
+  contents: read
+
+jobs:
+  build-push:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check deploy credentials are configured
+        run: |
+          if [ -z "${{ secrets.AWS_ROLE_ARN }}" ]; then
+            echo "AWS_ROLE_ARN is not set in this repository's secrets." >&2
+            echo "Add the OIDC deploy role ARN before running this workflow." >&2
+            exit 1
+          fi
+
+      - uses: actions/checkout@v5
+
+      - uses: aws-actions/configure-aws-credentials@v5
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+          aws-region: ${{ vars.AWS_REGION || 'us-east-1' }}
+
+      - uses: aws-actions/amazon-ecr-login@v2
+        id: ecr
+
+      - name: Build and push (release SHA tag)
+        env:
+          REPO: ${{ steps.ecr.outputs.registry }}/relational-fluency-rater/app
+          REGION: ${{ vars.AWS_REGION || 'us-east-1' }}
+        run: |
+          set -euo pipefail
+          SHA=${GITHUB_SHA::7}
+
+          # Tags are IMMUTABLE. Three answers, not two: present (nothing to
+          # do), confirmed absent (build), and could-not-tell (refuse: a
+          # missing ecr:DescribeImages must not read as "not built yet").
+          if probe=$(aws ecr describe-images --region "$REGION" \
+                       --repository-name relational-fluency-rater/app \
+                       --image-ids imageTag="$SHA" 2>&1); then
+            echo "relational-fluency-rater/app:$SHA already exists in ECR (tags are immutable)."
+            echo "Nothing to build. To release it: pin container_image = \"$REPO:$SHA\" by PR,"
+            echo "then follow docs/OPERATIONS.md, \"Releasing a build\" (tools/deploy.sh)."
+            exit 0
+          fi
+          case "$probe" in
+            *ImageNotFoundException*) : ;;
+            *)
+              echo "Could not determine whether $REPO:$SHA already exists in ECR:" >&2
+              echo "$probe" >&2
+              echo "Refusing to build on an unknown answer (ecr:DescribeImages on the role?" >&2
+              echo "the repository not created yet? docs/DEPLOY-AWS.md, \"First deploy\")." >&2
+              exit 1 ;;
+          esac
+
+          docker build --platform linux/amd64 --build-arg BUILD_SHA="$SHA" -t "$REPO:$SHA" .
+          docker push "$REPO:$SHA"
+
+          echo "Pushed $REPO:$SHA (BUILD_SHA=$SHA)"
+          {
+            echo "### Image built"
+            echo ""
+            echo "Commit \`$GITHUB_SHA\` → \`$REPO:$SHA\` (\`BUILD_SHA=$SHA\`)"
+            echo ""
+            echo "Next, by PR: in \`infra/terraform/terraform.tfvars\`"
+            echo ""
+            echo '```hcl'
+            echo "container_image = \"$REPO:$SHA\""
+            echo '```'
+            echo ""
+            echo "then \`tools/deploy.sh\` from an up-to-date main."
+          } >> "$GITHUB_STEP_SUMMARY"
