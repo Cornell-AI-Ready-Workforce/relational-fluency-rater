@@ -1,0 +1,1345 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Relational Fluency rating</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=Inter:wght@400;500;600&display=swap">
+<style>
+/* Layout: a collapsible side menu listing the rater's four stages, then two working columns, WATCH | RATE,
+   and a full-width review page before each stage is submitted. One job per control, one filled button
+   at a time. The page follows the rater's own settings: light or dark, more contrast, forced colors,
+   reduced motion and text size. It offers no in-page switches for any of them. */
+:root {
+  color-scheme: light;
+  --ground: #F7F7F5;
+  --surface: #FFFFFF;
+  --surface-2: #F1F2F0;
+  --chip: #EEF0F2;
+  --ink: #17181A;
+  --muted: #5F6570;
+  --line: #E4E4E0;
+  --line-strong: #CFCFCA;
+  --field: #83878D; /* control edges: 3:1 on every surface (WCAG 1.4.11) */
+  --mark: #2457C5; /* blue only ever means "example" */
+  --mark-bg: #E9EFFB;
+  --on-mark: #FFFFFF;
+  --ok: #1F7A4D;
+  --ok-bg: #E6F4EC;
+  --warn: #7A5512;
+  --screen: #2B2D31;
+  --screen-ink: #C7CAD0;
+  --focus: #17181A;
+  --focus-w: 2px;
+  --shadow: 0 1px 2px rgba(23, 24, 26, .06);
+  --sans: "Inter", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --mono: "IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  --r: 10px;
+  --r-sm: 6px;
+  --ctl-h: 2.25rem;
+  --nav-w: 15rem;
+}
+/* Dark: the study's dark neutrals, not an inversion. Accents are lifted so they keep their contrast. */
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    color-scheme: dark;
+    --ground: #0E1013; --surface: #161A1E; --surface-2: #1D2126; --chip: #252A30;
+    --ink: #E9ECEF; --muted: #A2A9B2; --line: #2A2F35; --line-strong: #3E454D; --field: #6A717B;
+    --mark: #8DB1FF; --mark-bg: #1B2944; --on-mark: #0E1013;
+    --ok: #74D3A3; --ok-bg: #13291C; --warn: #E9C47A;
+    --screen: #050607; --screen-ink: #A9AEB6; --focus: #E9ECEF;
+    --shadow: 0 1px 2px rgba(0, 0, 0, .4);
+  }
+}
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --ground: #0E1013; --surface: #161A1E; --surface-2: #1D2126; --chip: #252A30;
+  --ink: #E9ECEF; --muted: #A2A9B2; --line: #2A2F35; --line-strong: #3E454D; --field: #6A717B;
+  --mark: #8DB1FF; --mark-bg: #1B2944; --on-mark: #0E1013;
+  --ok: #74D3A3; --ok-bg: #13291C; --warn: #E9C47A;
+  --screen: #050607; --screen-ink: #A9AEB6; --focus: #E9ECEF;
+  --shadow: 0 1px 2px rgba(0, 0, 0, .4);
+}
+/* More contrast when the rater asks the system for it. */
+@media (prefers-contrast: more) {
+  :root { --muted: #3A3F46; --line: #A9A9A3; --line-strong: #6B6B66; --field: #5C5C57; --focus-w: 3px; --mark-bg: #DCE6FA; }
+}
+@media (prefers-contrast: more) and (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) { --muted: #D0D5DB; --line: #5A616A; --line-strong: #8A919A; --field: #9AA1AA; --mark-bg: #22365C; }
+}
+
+* { box-sizing: border-box; }
+[hidden] { display: none !important; }
+html, body { background: var(--ground); }
+body { margin: 0; color: var(--ink); font: 0.875rem/1.5 var(--sans); -webkit-font-smoothing: antialiased; accent-color: var(--ink); caret-color: var(--ink); }
+button, input, select, textarea { font: inherit; color: inherit; }
+::selection { background: var(--mark-bg); color: var(--ink); }
+:focus-visible { outline: var(--focus-w) solid var(--focus); outline-offset: 2px; }
+* { scrollbar-color: var(--line-strong) transparent; scrollbar-width: thin; }
+.sr { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0; }
+.mono { font-family: var(--mono); font-variant-numeric: tabular-nums; }
+.ico { width: 1em; height: 1em; flex: 0 0 auto; }
+.skip { position: absolute; left: 12px; top: -100px; z-index: 10; background: var(--ink); color: var(--ground); padding: 8px 14px; border-radius: var(--r-sm); font-weight: 500; text-decoration: none; }
+.skip:focus { top: 10px; }
+
+/* App frame */
+.app { display: grid; grid-template-columns: var(--nav-w) minmax(0, 1fr); min-height: 100vh; }
+
+/* Side menu */
+.side { background: var(--surface); border-right: 1px solid var(--line); display: flex; flex-direction: column; gap: 14px; padding: 14px 12px; position: sticky; top: 0; height: 100vh; overflow-y: auto; }
+.side-top { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 0 4px; }
+.brand { font-weight: 600; letter-spacing: -0.01em; font-size: 0.9375rem; white-space: nowrap; }
+.icon-btn { width: 2rem; height: 2rem; flex: 0 0 auto; display: grid; place-items: center; border: 1px solid var(--line); background: var(--surface); border-radius: var(--r-sm); cursor: pointer; color: var(--muted); }
+.icon-btn:hover { color: var(--ink); background: var(--surface-2); }
+.nav-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 2px; }
+.nav-item { display: grid; grid-template-columns: 1.625rem minmax(0, 1fr); align-items: center; gap: 10px; width: 100%; border: 0; background: transparent; border-radius: var(--r-sm); padding: 8px 10px; text-align: left; border-left: 3px solid transparent; cursor: pointer; }
+.nav-item:hover { background: var(--surface-2); }
+.nav-item[aria-current="page"] { background: var(--surface-2); border-left-color: var(--ink); }
+.nav-item .num { width: 1.625rem; height: 1.625rem; border-radius: 50%; display: grid; place-items: center; font: 500 0.75rem/1 var(--mono); border: 1.5px solid var(--line-strong); color: var(--muted); background: var(--surface); }
+.nav-item.done .num { background: var(--ok-bg); border-color: var(--ok); color: var(--ok); }
+.nav-item.started .num { border-color: var(--ink); color: var(--ink); }
+.nav-item[aria-disabled="true"] { cursor: not-allowed; }
+.nav-item[aria-disabled="true"] .lbl b { color: var(--muted); }
+.nav-item[aria-disabled="true"]:hover { background: transparent; }
+.nav-item .lbl { display: grid; min-width: 0; line-height: 1.3; }
+.nav-item .lbl b { font-weight: 500; }
+.nav-item .lbl span { font-size: 0.75rem; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.nav-code { border: 1px solid var(--line); border-radius: var(--r-sm); padding: 10px 12px; font-size: 0.75rem; color: var(--muted); display: grid; gap: 8px; justify-items: start; }
+.nav-code.ready { border-color: var(--ok); background: var(--ok-bg); color: var(--ok); }
+.nav-code .code { font: 500 0.8125rem/1.2 var(--mono); color: var(--ink); word-break: break-all; user-select: all; }
+.side-foot { margin-top: auto; padding: 0 10px; }
+.link { border: 0; background: transparent; padding: 2px 0; min-height: 24px; color: var(--muted); text-decoration: underline; text-decoration-color: var(--line-strong); text-underline-offset: 3px; cursor: pointer; font-size: 0.75rem; }
+.link:hover { color: var(--ink); text-decoration-color: currentColor; }
+@media (min-width: 901px) {
+  .app.collapsed { --nav-w: 4rem; }
+  .collapsed .brand, .collapsed .nav-item .lbl, .collapsed .nav-code, .collapsed .side-foot { display: none; }
+  .collapsed .side { padding-inline: 8px; align-items: center; }
+  .collapsed .side-top { justify-content: center; padding: 0; }
+  .collapsed .nav-item { grid-template-columns: 1.625rem; padding: 6px; justify-content: center; }
+}
+
+/* Main */
+.main { min-width: 0; padding: 0 16px 16px; }
+.main:focus { outline: none; }
+.enc-head { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 16px; padding-block: 14px 12px; }
+.enc-head h1 { margin: 0; font-size: 1.125rem; font-weight: 600; letter-spacing: -0.01em; }
+.enc-head h1:focus { outline: none; }
+.enc-head h1 .of { color: var(--muted); font-weight: 400; }
+.enc-head .how { margin: 0; color: var(--ink); font-size: 0.8125rem; }
+.enc-head .saved { margin: 0 0 0 auto; font-size: 0.75rem; color: var(--muted); }
+.enc-head .saved.warn { color: var(--warn); }
+
+/* Shared components */
+.card { background: var(--surface); border: 1px solid var(--line); border-radius: var(--r); box-shadow: var(--shadow); }
+.btn { display: inline-flex; align-items: center; justify-content: center; gap: 8px; min-height: var(--ctl-h); border: 1px solid var(--line-strong); background: var(--surface); border-radius: var(--r-sm); padding: 4px 14px; cursor: pointer; font-weight: 500; white-space: nowrap; transition: background-color .15s ease-out; }
+.btn:hover { background: var(--surface-2); }
+.btn:active { transform: translateY(1px); }
+.btn.primary { background: var(--ink); color: var(--ground); border-color: var(--ink); }
+.btn.primary:hover { opacity: .9; }
+.btn.markb { border-color: var(--mark); color: var(--mark); background: var(--surface); transition: none; }
+.btn.markb:hover { background: var(--mark-bg); }
+.btn.markb[data-pending="true"] { background: var(--mark); color: var(--on-mark); }
+.btn.small { min-height: 1.75rem; padding: 2px 10px; font-size: 0.75rem; }
+.btn:disabled, .btn:disabled:hover { cursor: not-allowed; background: var(--chip); color: var(--muted); border-color: var(--line-strong); transform: none; opacity: 1; }
+
+/* Stage grid */
+.enc { display: grid; grid-template-columns: minmax(0, 1.3fr) minmax(0, 1fr); gap: 16px; align-items: start; }
+@media (max-width: 1100px) { .enc { grid-template-columns: minmax(0, 1fr); } }
+.watch { position: relative; display: grid; gap: 14px; min-width: 0; }
+
+/* Player: big video, then the one bar, then the controls */
+.player { padding: 14px; display: grid; gap: 10px; }
+.screen { position: relative; aspect-ratio: 16 / 9; width: min(100%, max(26rem, calc((100vh - 460px) * 16 / 9))); max-width: 100%; margin-inline: auto; background: var(--screen); border-radius: var(--r-sm); overflow: hidden; display: grid; place-items: center; user-select: none; cursor: pointer; }
+.screen:focus { outline: none; }
+.screen .avatar { width: 16%; max-width: 120px; height: auto; color: var(--screen-ink); opacity: .55; }
+.screen:not(.playing) .avatar { visibility: hidden; }
+.big-play { position: absolute; inset: 0; margin: auto; width: 4rem; height: 4rem; border-radius: 50%; background: rgba(0, 0, 0, .6); box-shadow: 0 0 0 1px rgba(255, 255, 255, .55); color: #fff; display: grid; place-items: center; pointer-events: none; }
+.big-play svg { width: 1.5rem; height: 1.5rem; margin-left: 4px; }
+.screen.playing .big-play { display: none; }
+.speaking { position: absolute; left: 10px; bottom: 9px; color: #fff; background: rgba(0, 0, 0, .6); border-radius: 4px; font: 500 0.75rem/1.2 var(--sans); padding: 4px 8px; }
+
+.track { position: relative; height: 2rem; background: var(--surface-2); border: 1px solid var(--field); border-radius: var(--r-sm); cursor: pointer; touch-action: none; user-select: none; }
+.bands { position: absolute; inset: 0; pointer-events: none; }
+.band { position: absolute; top: 4px; bottom: 4px; min-width: 4px; border-radius: 3px; background: var(--mark-bg); background: color-mix(in srgb, var(--mark) 35%, transparent); box-shadow: inset 0 0 0 1.5px var(--mark); }
+.band.pending { background: transparent; box-shadow: none; outline: 1.5px dashed var(--mark); outline-offset: -1.5px; }
+.track .head { position: absolute; top: -4px; bottom: -4px; width: 2px; margin-left: -1px; background: var(--ink); pointer-events: none; border-radius: 1px; }
+.track .head::after { content: ""; position: absolute; left: 50%; top: 50%; width: 12px; height: 12px; margin: -6px 0 0 -6px; border-radius: 50%; background: var(--ink); box-shadow: 0 0 0 2px var(--surface); }
+
+.controls { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.controls .clock { font-size: 0.8125rem; color: var(--muted); padding: 0 4px; }
+.clip-ctl { margin-left: auto; display: inline-flex; flex-wrap: wrap; gap: 8px; }
+.clip-tip { margin: -2px 0 0; font-size: 0.8125rem; color: var(--ink); }
+.clip-tip.warn { color: var(--warn); }
+
+/* Transcript: one column, the time on the left jumps there */
+.transcript { overflow: hidden; display: flex; flex-direction: column; }
+.tr-title { margin: 0; padding: 10px 16px; font-size: 0.8125rem; font-weight: 600; border-bottom: 1px solid var(--line); }
+.tr-scroll { position: relative; overflow-y: auto; overscroll-behavior: contain; max-height: 60vh; scroll-padding-top: 3rem; }
+.tr-scroll:focus-visible, .q-head:focus-visible { outline-offset: calc(-1 * var(--focus-w)); }
+.sel-strip { position: sticky; top: 0; z-index: 1; padding: 7px 16px; margin-inline: var(--focus-w); background: var(--mark-bg); border-bottom: 1px solid var(--line); font-size: 0.8125rem; font-weight: 600; }
+.tr-list { list-style: none; margin: 0; padding: 0; }
+.part { padding: 6px 16px; background: var(--surface-2); border-bottom: 1px solid var(--line); font: 600 0.75rem/1.4 var(--sans); color: var(--muted); }
+.turn { display: grid; grid-template-columns: 3.2rem minmax(0, 1fr) auto; column-gap: 10px; align-items: start; padding: 9px 12px 9px 9px; border-left: 3px solid transparent; border-bottom: 1px solid var(--line); }
+.turn:last-child { border-bottom: 0; }
+.turn.now { border-left-color: var(--ink); background: var(--surface-2); }
+.turn.sel { background: var(--mark-bg); }
+.time-btn { border: 0; background: transparent; font: 400 0.8125rem/1.5 var(--mono); color: var(--muted); min-height: 24px; padding: 0 2px; text-align: right; cursor: pointer; border-radius: 4px; }
+.time-btn:hover { color: var(--ink); text-decoration: underline; }
+.line { min-width: 0; }
+.turn .who { display: block; font-weight: 600; font-size: 0.8125rem; line-height: 1.5; }
+.turn.c .who { font-weight: 500; color: var(--muted); }
+.turn.c .txt { color: var(--muted); }
+.turn .txt { display: block; max-width: 65ch; }
+.turn .missing { font-style: italic; color: var(--muted); }
+.note { display: inline-block; margin-top: 4px; font-size: 0.75rem; color: var(--muted); background: var(--chip); border-radius: 999px; padding: 1px 9px; }
+.also { display: block; margin-top: 2px; font-size: 0.75rem; color: var(--muted); }
+.also:empty { display: none; }
+.add-btn { min-height: 1.75rem; padding: 2px 10px; display: inline-flex; align-items: center; gap: 6px; border: 1px solid var(--mark); color: var(--mark); background: var(--surface); border-radius: 999px; font-size: 0.75rem; font-weight: 500; cursor: pointer; white-space: nowrap; }
+.add-btn:hover { background: var(--mark-bg); }
+.add-btn.on { background: var(--mark); color: var(--on-mark); }
+.add-btn.on:hover { opacity: .9; }
+.add-btn .i-rm { display: none; }
+.add-btn.on:hover .i-on, .add-btn.on:focus-visible .i-on { display: none; }
+.add-btn.on:hover .i-rm, .add-btn.on:focus-visible .i-rm { display: inline-flex; }
+.add-btn > span[aria-hidden] { display: inline-flex; }
+.tools-off .add-btn { visibility: hidden; }
+
+/* Desktop: the stage fills the window; the transcript and the questions scroll inside their own columns */
+@media (min-width: 1101px) {
+  .enc { height: calc(100vh - var(--enc-top, 80px) - 16px); min-height: 520px; align-items: stretch; }
+  .watch { display: flex; flex-direction: column; min-height: 0; overflow-y: auto; overscroll-behavior: contain; }
+  .watch > * { flex: 0 0 auto; }
+  .watch > .transcript { flex: 1 1 auto; min-height: 220px; }
+  .tr-scroll { flex: 1 1 auto; max-height: none; min-height: 160px; }
+  .rate { min-height: 0; overflow-y: auto; overscroll-behavior: contain; scroll-padding-top: 3rem; scroll-padding-bottom: 6rem; }
+}
+@media (max-width: 1100px) { html { scroll-padding-bottom: 6rem; } }
+
+/* Questions */
+.rate { position: relative; display: flex; flex-direction: column; min-width: 0; }
+.rate-intro { padding: 14px 16px 12px; display: grid; gap: 6px; }
+.rate-intro p { margin: 0; max-width: 62ch; }
+.rate-intro .rule { color: var(--muted); font-size: 0.8125rem; }
+.where { padding: 8px 16px; border-block: 1px solid var(--line); background: var(--surface); font-size: 0.8125rem; color: var(--muted); }
+.where b { color: var(--ink); font-weight: 600; }
+@media (min-width: 1101px) { .where { position: sticky; top: 0; z-index: 2; } }
+.items { container-type: inline-size; }
+.item { border-bottom: 1px solid var(--line); }
+.q-h { margin: 0; font: inherit; }
+.q-head { display: grid; grid-template-columns: 1.6rem minmax(0, 1fr); gap: 2px 10px; width: 100%; min-height: 44px; padding: 12px 16px; border: 0; background: transparent; text-align: left; cursor: pointer; }
+.q-head:hover { background: var(--surface-2); }
+.q-head .n { font: 500 0.8125rem/1.5 var(--mono); color: var(--muted); }
+.q-head .qt { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.q-head .sum { grid-column: 2; display: inline-flex; align-items: center; gap: 6px; font-size: 0.75rem; color: var(--muted); }
+.q-head .sum:empty { display: none; }
+.q-head .sum.need { color: var(--warn); }
+.item.open { box-shadow: inset 3px 0 0 var(--ink); }
+.item.open .q-head { cursor: default; }
+.item.open .q-head:hover { background: transparent; }
+.item.open .q-head .n { color: var(--ink); }
+.item.open .q-head .qt { display: block; font-weight: 500; }
+.item.open .q-head .sum { display: none; }
+.q-body { padding: 0 16px 16px; display: grid; gap: 12px; }
+.opts { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 6px; border: 0; margin: 0; padding: 0; min-width: 0; }
+.opt { position: relative; }
+.opt input { position: absolute; opacity: 0; inset: 0; margin: 0; cursor: pointer; width: 100%; height: 100%; }
+.opt span { display: grid; place-items: center; gap: 2px; min-height: 2.75rem; padding: 6px 2px; border: 1px solid var(--field); border-radius: var(--r-sm); background: var(--surface); }
+.opt b { font: 500 0.875rem/1 var(--mono); }
+.opt i { font: 400 0.75rem/1.2 var(--sans); font-style: normal; color: var(--muted); }
+.opt input:hover + span { border-color: var(--ink); }
+.opt input:checked + span { background: var(--ink); border-color: var(--ink); color: var(--ground); }
+.opt input:checked + span i { color: var(--ground); }
+.opt input:focus-visible + span { outline: var(--focus-w) solid var(--focus); outline-offset: 2px; }
+@container (max-width: 23rem) {
+  .opts { grid-template-columns: minmax(0, 1fr); }
+  .opt span { grid-auto-flow: column; justify-content: start; gap: 10px; padding: 6px 12px; min-height: 2.25rem; }
+}
+.why-box { display: grid; gap: 8px; font-size: 0.8125rem; }
+.why-box .lbl { color: var(--muted); font-size: 0.75rem; }
+.hint { margin: 0; color: var(--ink); }
+.hint.quiet { color: var(--muted); }
+.quotes { list-style: none; margin: 0; padding: 0; display: grid; gap: 4px; }
+.quotes li { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; gap: 8px; align-items: start; background: var(--mark-bg); border: 1px solid var(--mark); border-radius: var(--r-sm); padding: 2px 2px 2px 4px; }
+.quotes .go { border: 0; background: transparent; color: var(--mark); font: 500 0.75rem/1.5rem var(--mono); min-height: 24px; padding: 0 4px; cursor: pointer; border-radius: 4px; }
+.quotes .go:hover { text-decoration: underline; }
+.quotes .q { color: var(--ink); font-size: 0.75rem; line-height: 1.5rem; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
+.quotes .x { border: 0; background: transparent; color: var(--mark); cursor: pointer; width: 24px; height: 24px; border-radius: 4px; display: grid; place-items: center; }
+.quotes .x:hover { background: var(--surface); }
+.submit-row { position: sticky; bottom: 0; margin-top: auto; background: var(--surface); border-top: 1px solid var(--line); padding: 12px 16px; display: flex; flex-wrap: wrap; align-items: center; gap: 8px 14px; border-radius: 0 0 var(--r) var(--r); z-index: 2; }
+.why { color: var(--muted); font-size: 0.8125rem; }
+
+/* Review page */
+.review { max-width: 56rem; display: grid; gap: 14px; padding-bottom: 24px; }
+.review .intro { margin: 0; color: var(--muted); max-width: 70ch; }
+.rv-list { list-style: none; margin: 0; padding: 0; }
+.rv-item { display: grid; grid-template-columns: 2rem minmax(0, 1fr) auto; gap: 6px 14px; padding: 14px 16px; border-bottom: 1px solid var(--line); }
+.rv-item:last-child { border-bottom: 0; }
+.rv-item .n { font: 400 0.75rem/1.7 var(--mono); color: var(--muted); }
+.rv-item .q { font-weight: 500; }
+.rv-item .score { grid-column: 2; }
+.score-pill { display: inline-block; font: 500 0.75rem/1.125rem var(--sans); background: var(--ink); color: var(--ground); border-radius: 999px; padding: 2px 10px; }
+.rv-item .ex { grid-column: 2; list-style: none; margin: 0; padding: 0; display: grid; gap: 4px; }
+.rv-item .ex li { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 10px; font-size: 0.8125rem; }
+.rv-item .ex .t { color: var(--muted); font-size: 0.75rem; line-height: 1.6; }
+.rv-item .none { grid-column: 2; color: var(--muted); font-size: 0.8125rem; }
+.rv-item .act { grid-column: 3; grid-row: 1 / span 3; align-self: start; }
+.rv-item .act .link { font-size: 0.8125rem; }
+.rv-comments { padding: 14px 16px; display: grid; gap: 12px; }
+.rv-comments h2 { margin: 0; font-size: 0.875rem; font-weight: 600; }
+.rv-comments .opt-hint { color: var(--muted); font-weight: 400; }
+.rv-comments dl { margin: 0; display: grid; gap: 8px; }
+.rv-comments dt { font-weight: 500; }
+.rv-comments dd { margin: 0; color: var(--muted); white-space: pre-wrap; }
+.field { display: grid; gap: 6px; }
+.field label { font-weight: 500; }
+.field textarea { width: 100%; min-height: 4.5rem; resize: vertical; border: 1px solid var(--field); border-radius: var(--r-sm); padding: 8px 10px; background: var(--surface); }
+.rv-foot { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
+.done-card { padding: 18px 20px; display: grid; gap: 10px; justify-items: start; border-color: var(--ok); }
+.done-card p { margin: 0; }
+.code-row { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
+.code-row .code { font: 500 0.9375rem/1.2 var(--mono); background: var(--surface); border: 1px solid var(--ok); border-radius: var(--r-sm); padding: 6px 10px; user-select: all; }
+.copy-help { color: var(--muted); font-size: 0.8125rem; }
+
+/* First-run tour: a dimmed page with the current part of the screen left lit, and a small card beside it */
+.tour { position: fixed; inset: 0; width: 100vw; height: 100vh; max-width: none; max-height: none; margin: 0; padding: 0; border: 0; background: transparent; overflow: hidden; color: var(--ink); }
+.tour::backdrop { background: transparent; }
+.tour-hole { position: fixed; border-radius: var(--r); box-shadow: 0 0 0 200vmax rgba(10, 12, 15, .58); pointer-events: none; transition: top .35s cubic-bezier(.16, 1, .3, 1), left .35s cubic-bezier(.16, 1, .3, 1), width .35s cubic-bezier(.16, 1, .3, 1), height .35s cubic-bezier(.16, 1, .3, 1); }
+.tour-card { position: fixed; width: min(21rem, calc(100vw - 32px)); background: var(--surface); border: 1px solid var(--line); border-radius: var(--r); box-shadow: 0 12px 32px rgba(10, 12, 15, .22); padding: 18px 18px 14px; display: grid; gap: 10px; }
+.tour-title { margin: 0; font-size: 1rem; font-weight: 600; letter-spacing: -0.01em; text-wrap: balance; }
+.tour-title:focus { outline: none; }
+.tour-body { margin: 0; max-width: 60ch; }
+.tour-demo { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.tour-demo > * { pointer-events: none; }
+.tour-actions { display: flex; align-items: center; gap: 8px; margin-top: 4px; }
+.tour-count { margin-left: auto; font-size: 0.75rem; color: var(--muted); font-variant-numeric: tabular-nums; padding-right: 4px; }
+.tour-card.sheet { left: 0 !important; right: 0; top: auto !important; bottom: 0; width: 100%; border-radius: var(--r) var(--r) 0 0; padding-bottom: 18px; }
+.tour-card.sheet.sheet-top { top: 0 !important; bottom: auto; border-radius: 0 0 var(--r) var(--r); }
+html:has(#tour[open]) { overflow: hidden; }
+
+/* Narrow screens: the menu becomes a block above the content */
+@media (max-width: 900px) {
+  .app { grid-template-columns: minmax(0, 1fr); align-content: start; }
+  .side { position: static; height: auto; border-right: 0; border-bottom: 1px solid var(--line); padding: 12px 16px; }
+  .nav-list { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .side-foot { margin-top: 0; }
+  .nav-item .lbl span { white-space: normal; }
+  .collapsed .side > :not(.side-top) { display: none; }
+}
+@media (max-width: 1100px) { .screen { width: 100%; } }
+
+/* Reduced motion: keep every state change, drop the movement. */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { transition: none !important; scroll-behavior: auto !important; }
+  .btn:active { transform: none; }
+}
+
+/* Forced colors (Windows contrast themes): let system colors through, keep state visible without color. */
+@media (forced-colors: active) {
+  .card, .side, .nav-code, .done-card { border: 1px solid CanvasText; }
+  .nav-item, .turn { border-left-color: Canvas; }
+  .nav-item[aria-current="page"], .turn.now { border-left-color: Highlight; }
+  .nav-item[aria-current="page"] { outline: 2px solid Highlight; outline-offset: -2px; }
+  .opt input:checked + span, .opt input:checked + span i { forced-color-adjust: none; background: Highlight; color: HighlightText; border-color: Highlight; }
+  .add-btn.on, .btn.markb[data-pending="true"] { forced-color-adjust: none; background: Highlight; color: HighlightText; border-color: Highlight; }
+  .turn.sel { outline: 2px solid Highlight; outline-offset: -2px; }
+  .item.open { box-shadow: none; outline: 2px solid Highlight; outline-offset: -2px; }
+  .track { border-color: CanvasText; }
+  .track .head, .track .head::after { forced-color-adjust: none; background: CanvasText; }
+  .band { forced-color-adjust: none; background: Highlight; box-shadow: none; }
+  .band.pending { background: transparent; outline-color: Highlight; }
+  .big-play, .speaking { border: 1px solid CanvasText; }
+  .quotes li { border-color: CanvasText; }
+  .btn:disabled { color: GrayText; border-color: GrayText; }
+  .tour-hole { outline: 3px solid Highlight; outline-offset: 2px; }
+  .tour-card { border-color: CanvasText; }
+  :focus-visible { outline-color: Highlight; }
+}
+</style>
+</head>
+<body>
+<a class="skip" href="#main">Skip to main content</a>
+<a class="skip" href="#rate-sec" id="skip-q">Skip to the questions</a>
+<div class="sr" id="announce" role="status" aria-live="polite"></div>
+<div class="app" id="app">
+  <nav class="side" id="side" aria-label="Stages">
+    <div class="side-top">
+      <div class="brand">Relational Fluency</div>
+      <button class="icon-btn" id="collapse" type="button" aria-label="Hide menu">
+        <svg class="ico" viewBox="0 0 16 16" aria-hidden="true"><rect x="2" y="3" width="12" height="10" rx="1.5" fill="none" stroke="currentColor" stroke-width="1.5"/><path d="M6.5 3v10" fill="none" stroke="currentColor" stroke-width="1.5"/></svg>
+      </button>
+    </div>
+    <ol class="nav-list" id="nav-list"></ol>
+    <div class="nav-code" id="nav-code"></div>
+    <div class="side-foot"><button class="link" id="open-tour" type="button">Show the tour</button></div>
+  </nav>
+
+  <main class="main" id="main" tabindex="-1">
+    <!-- STAGE -->
+    <section id="view-stage" aria-labelledby="enc-h">
+      <div class="enc-head">
+        <h1 id="enc-h" tabindex="-1">Stage 1 <span class="of">of 4</span></h1>
+        <p class="how" id="how"></p>
+        <p class="saved" id="saved"></p>
+      </div>
+      <div class="enc" id="enc">
+        <section class="watch" aria-labelledby="watch-h">
+          <h2 class="sr" id="watch-h">Recording and transcript</h2>
+          <div class="card player">
+            <div class="screen" id="screen" tabindex="-1">
+              <svg class="avatar" viewBox="0 0 64 64" aria-hidden="true"><circle cx="32" cy="22" r="11" fill="currentColor"/><path d="M10 58c0-12.2 9.8-21 22-21s22 8.8 22 21z" fill="currentColor"/></svg>
+              <span class="big-play" aria-hidden="true"><svg viewBox="0 0 16 16"><path d="M4 2.5v11l9-5.5z" fill="currentColor"/></svg></span>
+              <span class="speaking" id="speaking" hidden></span>
+            </div>
+            <div class="track" id="track" role="slider" tabindex="0" aria-label="Position in video" aria-valuemin="0" aria-valuemax="0" aria-valuenow="0" aria-valuetext="0:00">
+              <div class="bands" id="bands" aria-hidden="true"></div>
+              <div class="head" id="head"></div>
+            </div>
+            <div class="controls">
+              <button class="btn" id="play" type="button"><span id="play-icon" aria-hidden="true"></span><span id="play-label">Play</span></button>
+              <span class="clock mono" id="clock" aria-hidden="true">0:00 / 0:00</span>
+              <span class="clip-ctl" id="clip-ctl" hidden>
+                <button class="btn" id="clip-cancel" type="button" hidden>Cancel<span class="sr"> clip</span></button>
+                <button class="btn markb" id="period" type="button"></button>
+              </span>
+            </div>
+            <p class="clip-tip" id="clip-tip" hidden></p>
+          </div>
+
+          <div class="card transcript">
+            <h3 class="tr-title" id="tr-title">Transcript</h3>
+            <div class="tr-scroll" id="tr-scroll" tabindex="0" role="region" aria-labelledby="tr-title">
+              <div class="sel-strip" id="sel-strip" hidden></div>
+              <ol class="tr-list" id="tr-list"></ol>
+            </div>
+          </div>
+        </section>
+
+        <section class="rate card" id="rate-sec" tabindex="-1" aria-labelledby="rate-h">
+          <h2 class="sr" id="rate-h">Questions</h2>
+          <div class="rate-intro">
+            <p>How often did the participant do each thing below? The participant is the person you are rating. The other speakers are characters.</p>
+            <p class="rule">If you pick 2 to 5, add at least one example: a line the participant said, or a clip of them speaking.</p>
+          </div>
+          <div class="where" aria-live="polite" aria-atomic="true">Question <b id="q-now">1</b> of <span id="q-total">5</span></div>
+          <div class="items" id="items"></div>
+          <div class="submit-row">
+            <button class="btn" id="to-review" type="button" disabled aria-describedby="gate-why">Review answers</button>
+            <span class="why" id="gate-why"></span>
+          </div>
+        </section>
+      </div>
+    </section>
+
+    <!-- REVIEW -->
+    <section id="view-review" aria-labelledby="rv-h" hidden>
+      <div class="enc-head">
+        <h1 id="rv-h" tabindex="-1">Review stage 1 <span class="of">of 4</span></h1>
+      </div>
+      <div class="review">
+        <div id="rv-done"></div>
+        <p class="intro" id="rv-intro"></p>
+        <div class="card" id="rv-list-card"><ol class="rv-list" id="rv-list"></ol></div>
+        <div class="card rv-comments" id="rv-form">
+          <h2>Anything to add? <span class="opt-hint">(optional)</span></h2>
+          <div class="field">
+            <label for="better">What could the participant have done better?</label>
+            <textarea id="better" rows="3"></textarea>
+          </div>
+          <div class="field">
+            <label for="notable">Anything else you noticed?</label>
+            <textarea id="notable" rows="3"></textarea>
+          </div>
+        </div>
+        <div class="card rv-comments" id="rv-read" hidden></div>
+        <div class="rv-foot" id="rv-foot">
+          <button class="btn" id="rv-back" type="button"></button>
+          <button class="btn primary" id="rv-submit" type="button">Submit stage 1</button>
+        </div>
+      </div>
+    </section>
+
+  </main>
+</div>
+
+<dialog class="tour" id="tour" aria-labelledby="tour-title" aria-describedby="tour-body">
+  <div class="tour-hole" id="tour-hole" aria-hidden="true"></div>
+  <div class="tour-card" id="tour-card">
+    <h2 class="tour-title" id="tour-title" tabindex="-1" aria-describedby="tour-body"></h2>
+    <p class="tour-body" id="tour-body"></p>
+    <div class="tour-demo" id="tour-demo" aria-hidden="true" hidden></div>
+    <div class="tour-actions">
+      <button class="link" id="tour-skip" type="button">Skip tour</button>
+      <span class="tour-count" id="tour-count"></span>
+      <button class="btn" id="tour-back" type="button">Back</button>
+      <button class="btn primary" id="tour-next" type="button">Next</button>
+    </div>
+  </div>
+</dialog>
+
+<script>
+(() => {
+  'use strict';
+  document.documentElement.lang = 'en';
+
+  /* ---------- Icons: one stroke family, drawn rather than typed ---------- */
+  const ICON = {
+    check: '<svg class="ico" viewBox="0 0 16 16" aria-hidden="true"><path d="M3.5 8.5 6.5 11.5 12.5 4.5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>',
+    plus: '<svg class="ico" viewBox="0 0 16 16" aria-hidden="true"><path d="M8 3v10M3 8h10" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>',
+    x: '<svg class="ico" viewBox="0 0 16 16" aria-hidden="true"><path d="M4 4l8 8M12 4l-8 8" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>',
+    back: '<svg class="ico" viewBox="0 0 16 16" aria-hidden="true"><path d="M10 3 5 8l5 5" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>',
+    lock: '<svg class="ico" viewBox="0 0 16 16" aria-hidden="true"><rect x="3.5" y="7" width="9" height="6.5" rx="1.5" fill="none" stroke="currentColor" stroke-width="1.5"/><path d="M5.5 7V5.2a2.5 2.5 0 0 1 5 0V7" fill="none" stroke="currentColor" stroke-width="1.5"/></svg>',
+    clip: '<svg class="ico" viewBox="0 0 16 16" aria-hidden="true"><path d="M2.5 4v8M13.5 4v8M4.5 8h7" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>',
+    stop: '<svg class="ico" viewBox="0 0 16 16" aria-hidden="true"><rect x="4" y="4" width="8" height="8" rx="1" fill="currentColor"/></svg>',
+    play: '<svg class="ico" viewBox="0 0 16 16" aria-hidden="true"><path d="M4 2.5v11l9-5.5z" fill="currentColor"/></svg>',
+    pause: '<svg class="ico" viewBox="0 0 16 16" aria-hidden="true"><path d="M4 2.5h3v11H4zM9 2.5h3v11H9z" fill="currentColor"/></svg>',
+  };
+
+  /* ---------- Example data: four made-up recordings ---------- */
+  const CONTENT = [{"duration":314,"convs":[{"start":0,"end":82},{"start":117,"end":312}],"turns":[{"c":0,"t":3,"s":"P","x":"Hey, Riley. What's up?"},{"c":0,"t":8,"s":"C","x":"Hey, there's something I need to talk to you about. This morning I saw Sam present your latest analysis to leadership, and he didn't mention once that you ran those numbers. We can't let this happen again.","n":"C1"},{"c":0,"t":22,"s":"P","x":"Huh. Again? I already asked him about that after the last time."},{"c":0,"t":29,"s":"C","x":"I know. Honestly, I think you should email leadership with your original files attached. They've got your name right on them. I'd help you draft it. What do you think?","n":"C1"},{"c":0,"t":42,"s":"P","x":"I don't want to make it a big thing. Maybe Sam just forgot to mention me."},{"c":0,"t":50,"s":"C","x":"Or you could just let it go, I suppose. Decide it's not worth the drama. Honestly, I bet that's what Sam's counting on.","n":"C1"},{"c":0,"t":59,"s":"P","x":"No. I'd rather talk to Sam directly before I decide anything."},{"c":0,"t":67,"s":"C","x":"Good. I've got your back, and I want to hear how it goes. I have to get back to my desk, but he's out by the elevators right now.","n":"C1"},{"c":0,"t":78,"s":"P","x":"Okay. Thanks for telling","note":"line cut off"},{"c":1,"t":121,"s":"P","x":"Hey, Sam."},{"c":1,"t":127,"s":"C","x":"Oh, hey. Heading down? Long morning already. Got any new results for me today?","n":"C2"},{"c":1,"t":139,"s":"P","x":"Actually, that's kind of what I wanted to talk about. You presented my analysis again this morning and didn't mention me. It's my analysis, and the authorship needs to be right. How do we fix that going forward?"},{"c":1,"t":156,"s":"C","x":"Wow, okay. I did most of the legwork shaping that into a narrative leadership could follow. I don't think it's that simple.","n":"C2"},{"c":1,"t":171,"s":"P","x":"Come on. The analysis came from my file. I sent it to you."},{"c":1,"t":181,"s":"C","x":"Look, in those rooms people say \"I.\" Everyone's work gets folded together, and nobody's keeping score.","n":"C2"},{"c":1,"t":195,"s":"P","x":"Maybe. I just don't want this getting weird between us."},{"c":1,"t":205,"s":"C","x":"Totally. Anyway, we should line up what leadership wants next. Got a minute for that?","n":"C2"},{"c":1,"t":218,"s":"P","x":"We can do that in a sec. I'm not keeping score, and I know the framing was yours. I just want the credit for the analysis to be accurate going forward."},{"c":1,"t":234,"s":"C","x":"Fine. Maybe I could have named your part in there, or said \"we.\" Call it an oversight. The framing is still what made it land in the room, though.","n":"C2"},{"c":1,"t":250,"s":"P","x":"Could you mention it at Thursday's review? Just one line saying the model was mine."},{"c":1,"t":263,"s":"C","x":"Thursday. Yeah, I can do that. Send me a sentence and I'll use it.","n":"C2"},{"c":1,"t":276,"s":"P","x":"","note":"not transcribed"},{"c":1,"t":285,"s":"C","x":"That's my lift. Anything else can wait until another time.","n":"C2"},{"c":1,"t":296,"s":"P","x":"Okay. Thanks for hearing me out."},{"c":1,"t":306,"s":"C","x":"Sure. See you Thursday.","n":"C2"}]},{"duration":382,"convs":[{"start":0,"end":60},{"start":80,"end":378}],"turns":[{"c":0,"t":4,"s":"P","x":"Hi Morgan. I wanted to talk about my pay. Two cycles ago you said if I took on the extra reporting you'd sort it out, and since then I've also picked up the launch and I've been covering for two people who left."},{"c":0,"t":23,"s":"C","x":"I did say that. I want to keep you, and you know what this cycle looks like.","n":"C1"},{"c":0,"t":32,"s":"P","x":"I do. And I'm guessing you're about to tell me the budget's frozen, so I'm not asking you to sign anything today. I want to know what an exception would actually take."},{"c":1,"t":81,"s":"C","x":"It takes a written case to the director, and those have gone through before. But first... how are you actually holding up with all of it?","n":"C1"},{"c":1,"t":90,"s":"P","x":"Tired, honestly. I've been doing evenings most weeks since the launch started. So the specific ask is my base moved to where it should have been two cycles ago. Something like twelve percent."},{"c":1,"t":99,"s":"C","x":"Twelve percent... there's nothing in the pot this cycle, for anyone, and nothing I can sign on my own. So what were you hoping I could do with it?","n":"C1"},{"c":1,"t":114,"s":"P","x":"Fix it. I've been doing three people's work for over a year and I'm still on the same number. That's just not right."},{"c":1,"t":126,"s":"C","x":"Nobody's arguing about the work, and it's been a long year for you. It still doesn't get past the freeze on its own, though... what else have you got?","n":"C1"},{"c":1,"t":141,"s":"P","x":"Okay. I have a written offer from another company, and it's noticeably more. I'm telling you because I'd rather stay, not to hold it over you."},{"c":1,"t":156,"s":"C","x":"Oh, I... didn't know that. How long have they given you?","n":"C1"},{"c":1,"t":163,"s":"P","x":"Two weeks. And if I go, you're backfilling the launch and all the reporting in the middle of a freeze. That's going to cost a lot more than a raise."},{"c":1,"t":178,"s":"C","x":"Losing you mid-launch would hurt, I won't pretend otherwise. But you're not the only one stretched right now, and I know it, so how does that look from your side?","n":"C1"},{"c":1,"t":193,"s":"P","x":"Honestly, I can only speak for me. I'm the one with an offer sitting in my inbox."},{"c":1,"t":202,"s":"C","x":"If I do this for you, I've opened a door I can't shut again. Unless there's something I'm not seeing?","n":"C1"},{"c":1,"t":214,"s":"P","x":"There is, actually. Alex got an off-cycle raise last quarter. So that door's been opened once already, and as far as I can tell nothing fell apart."},{"c":1,"t":231,"s":"C","x":"That's... yes, Alex's went through off-cycle. It went through on a written case, though, and a precedent on its own won't get yours past the director.","n":"C1"},{"c":1,"t":245,"s":"P","x":"","note":"not transcribed"},{"c":1,"t":253,"s":"C","x":"Besides the director, finance has to be comfortable that the number fits the band, and the director wants it in writing with numbers behind it. What could you do to help line that up?","n":"C1"},{"c":1,"t":270,"s":"P","x":"I could ask the launch lead to write a short note on what I've been covering. And I'd want to sit down with whoever in finance owns our band before it goes up, so they're not seeing it cold, and if","note":"line cut off"},{"c":1,"t":288,"s":"C","x":"Start with the writing, then. What's actually grown, and what number are you asking for?","n":"C1"},{"c":1,"t":296,"s":"P","x":"The reporting is about eight hours a week that didn't exist two years ago, plus the launch, plus approvals for the two people who left. I'd ask for eight percent off-cycle from the start of next quarter, and I can have the write-up to you by Friday."},{"c":1,"t":315,"s":"C","x":"Eight from next quarter, in writing by Friday... that I could take upward. But what do I say to everyone else who's stretched when they come asking the week it lands?","n":"C1"},{"c":1,"t":331,"s":"P","x":"The same thing you just said to me. It takes a written case with real numbers, and the bar's the same for everyone. Then you're not deciding on feelings, and you've got cover with the director."},{"c":1,"t":349,"s":"C","x":"So, your write-up on Friday, and I take it to the director and finance the week after. What would you want to happen next?","n":"C1"},{"c":1,"t":362,"s":"P","x":"If it goes through, great. If it doesn't, I need to know before the two weeks are up, because then I've got a decision to make. Can we put fifteen minutes in for next Thursday?"}]},{"duration":358,"convs":[{"start":0,"end":358}],"turns":[{"c":0,"t":4,"s":"P","x":"Hi, everyone. Thanks for making time. You all know the news, so I'm not going to dress it up. Before I say anything about the quarter, I'd like to hear from each of you. What's actually going on right now?"},{"c":0,"t":20,"s":"C","x":"Hey. Two more people on this team are going to leave, and nothing you can offer in this meeting is going to stop that. Two walked over pay inside six weeks, and nobody above us has said a word since.","n":"C1"},{"c":0,"t":37,"s":"P","x":"I hear you, Alex, I really do. But I think if we pull together on this, we can come out of the quarter stronger than we","note":"line cut off"},{"c":0,"t":48,"s":"C","x":"Priya's queue had forty-one open reviews in it this morning. Three of us, same deadlines we had when there were five.","n":"C1"},{"c":0,"t":61,"s":"P","x":"Okay. That sounded like a pep talk, fair enough. I can't change pay, and I'm not going to pretend I can. What I can do is take that number, forty-one reviews and three people, to my director in writing by Thursday and ask what gets cut."},{"c":0,"t":81,"s":"C","x":"Thursday. And if what comes back is that nothing gets cut?","n":"C1"},{"c":0,"t":91,"s":"P","x":"Then I tell you that on Friday, and we decide ourselves what slips. I'd rather drop something on purpose than drop it by accident. Jordan, you've been quiet. Where are you at with all this?"},{"c":0,"t":108,"s":"C","x":"Hi. I stopped doing the second pass on everyone's reviews about three weeks ago, and there's nothing in that to discuss. What do you need me doing?","n":"C2"},{"c":0,"t":121,"s":"P","x":"Okay. Thanks for telling me. Could you take the four client reviews out of Priya's queue for now? And Casey, how about you, how's it going?"},{"c":0,"t":135,"s":"C","x":"Hi. Sorry, can I ask something? Priya's whole queue landed on me and there's more of it than I can actually get through. And it all goes out under my name now, so the first time one's wrong, that comes back on me, doesn't it?","n":"C3"},{"c":0,"t":154,"s":"P","x":"No, it doesn't, and I'm really glad you said it in here. The four client reviews are Jordan's from today. For everything else in your queue, I sign off alongside you as lead, so if one comes back wrong, it comes back to me first."},{"c":0,"t":173,"s":"C","x":"Okay. Okay, that helps. Is that from this week, the signing off?","n":"C3"},{"c":0,"t":182,"s":"P","x":"From today. Anything you send after this meeting has my name on it too."},{"c":0,"t":193,"s":"C","x":"Nobody's doing the second pass now. The first bad review that goes out, a client finds it before we do.","n":"C2"},{"c":0,"t":205,"s":"P","x":"Jordan, that's exactly it. You're the reason this team has never shipped a bad review, and I don't think anyone upstairs knows that. I want your call on which reviews still need a second pass, and your name on that list when I take it up on Thursday."},{"c":0,"t":225,"s":"C","x":"Yeah. Okay. Client work, and anything Casey's doing for the first time. The rest can go out on one pass. That's maybe a third of the queue.","n":"C2"},{"c":0,"t":240,"s":"P","x":"","note":"not transcribed"},{"c":0,"t":247,"s":"C","x":"So what's this team for now? Where are we in six months, if anyone's still on it?","n":"C1"},{"c":0,"t":259,"s":"P","x":"In six months I want us to be the team other groups bring their hardest reviews to, because we got through the worst quarter we've had without shipping a bad one. That record is already ours. I want to keep it, and I want it written down upstairs with your three names on it."},{"c":0,"t":278,"s":"C","x":"I'll wait and see what comes back on Thursday.","n":"C1"},{"c":0,"t":289,"s":"P","x":"That's fair. Casey, Jordan, I meant that about your names. Nothing goes up on Thursday that you two haven't read first."},{"c":0,"t":302,"s":"C","x":"Okay. Thank you. I'd like to see it before it goes, yeah.","n":"C3"},{"c":0,"t":312,"s":"C","x":"What would you tell the next person who asks why anyone's still here?","n":"C1"},{"c":0,"t":323,"s":"P","x":"Honestly? I'd probably say the work's interesting and the people are good. I don't have a better answer than that yet. Let's leave it there. Thursday I take the numbers and Jordan's list up, and we meet Friday at ten to decide what we drop."},{"c":0,"t":343,"s":"C","x":"Friday, then. You still haven't said what happens if two more go.","n":"C1"},{"c":0,"t":352,"s":"C","x":"Thanks. Thank you, really.","n":"C3"}]},{"duration":340,"convs":[{"start":0,"end":222},{"start":236,"end":340}],"turns":[{"c":0,"t":4,"s":"P","x":"Okay, sorry, we got a bit sidetracked there. Dan, you were saying about the date?"},{"c":0,"t":12,"s":"C","x":"Monday the 9th. Every team, same morning. Stage it and we're dragging this out for a month, and by week three nobody remembers why we started.","n":"C1"},{"c":0,"t":25,"s":"C","x":"I was, um, sort of close to the tail end of last year's rollout, and I might have this wrong, but—","n":"C2"},{"c":0,"t":31,"s":"C","x":"Priya, yeah, last year was a different system, it doesn't carry over. So. The 9th. Can I get a yes on the 9th?","n":"C1"},{"c":0,"t":44,"s":"P","x":"I mean, the 9th is really tight for my team. I'd want Wednesday the 18th. I need that week to get my people ready, and honestly, I'm not launching on a Monday."},{"c":0,"t":60,"s":"C","x":"Or one team goes first. Whichever's readiest. Nobody else moves till they're through it.","n":"C3"},{"c":0,"t":68,"s":"C","x":"The 18th, noted. And that's what I was saying earlier, my point from the start. One team out front on the 9th, everyone else right behind it that same week.","n":"C1"},{"c":0,"t":80,"s":"C","x":"Pretty sure that was my— eh. Sure.","n":"C3"},{"c":0,"t":87,"s":"P","x":"Hang on, Dan, the one-team-first thing was Chris's. Chris, what are you actually hearing from the teams? Who'd be ready to go first?"},{"c":0,"t":101,"s":"C","x":"Sales. Ready the 9th, happy to go first. Operations wants the 30th, after their inventory count.","n":"C3"},{"c":0,"t":115,"s":"C","x":"Last year I was, um... it's probably all in my notes somewhere. Never mind.","n":"C2"},{"c":0,"t":127,"s":"P","x":"No, wait. Priya, you've started on that twice now. What happened last year?"},{"c":0,"t":134,"s":"C","x":"It went out to every team at once, and support collapsed inside the first week. And the plan for the 9th is that same plan again, every team on one day.","n":"C2"},{"c":0,"t":152,"s":"P","x":"Okay. That's kind of a big deal. Priya, do you know where any of the other teams are on dates?"},{"c":0,"t":163,"s":"C","x":"Support wants Monday the 23rd, their tickets peak in the first two weeks of the month. Finance wants the 16th, once their month-end close is done.","n":"C2"},{"c":0,"t":178,"s":"P","x":"Okay, so what if Sales pilots on the 9th, Finance goes on the 16th, my team on the 18th, and then Support on the","note":"line cut off"},{"c":0,"t":186,"s":"C","x":"Chris's pilot, fine, Sales on the 9th. But staging the rest over a month is slower. Everyone else goes that same week.","n":"C1"},{"c":0,"t":197,"s":"P","x":"Dan, come on. Everyone on one day is dead, Priya just told us why. We're staging it."},{"c":0,"t":210,"s":"C","x":"Fine. Staged, Sales first, the rest on the dates we just heard. Chris, you're good with that? Then that's decided.","n":"C1"},{"c":1,"t":244,"s":"C","x":"Right, who does what. I'll write it up tonight and take it to leadership myself on Thursday. Chris, calendar holds for each team. Priya, the reminder email to the leads.","n":"C1"},{"c":1,"t":261,"s":"P","x":"Sure, you take it upstairs, Dan. Priya, would you want to own the risk section, though? It was your point that changed the plan."},{"c":1,"t":274,"s":"C","x":"I'd take it. I'd need an hour with my notes from last year, and some time with the two people in Support who were there.","n":"C2"},{"c":1,"t":289,"s":"P","x":"","note":"not transcribed"},{"c":1,"t":300,"s":"C","x":"Priya's section, then, and she walks leadership through that part herself. Rest of it's mine. Thursday.","n":"C1"},{"c":1,"t":315,"s":"P","x":"Chris, Priya, anything I've missed before we wrap?"},{"c":1,"t":324,"s":"C","x":"Holds. Sales the 9th, Finance the 16th, yours the 18th, Support the 23rd, Ops the 30th. That's mine.","n":"C3"}]}];
+  // Questions per stage.
+  const QUESTIONS = [
+    ['Tries to resolve conflict instead of allowing it to fester', 'Resolves conflict by de-escalating the emotions in a situation', 'Allows conflict to fester', 'Tries to resolve conflict by openly talking about disagreements with those involved', 'Resolves conflict by bringing it into the open'],
+    ['Convinces others by using multiple approaches', 'Convinces others by appealing to their self-interest', 'Anticipates how others will respond when trying to convince them', 'Convinces others by developing behind-the-scenes support', 'Convinces others through discussion'],
+    ['Leads by building pride in the group', 'Leads by inspiring people', 'Does not inspire followers', 'Leads by bringing out the best in people', 'Leads by articulating a compelling vision'],
+    ['Does not cooperate with others', 'Works well in teams by being supportive', 'Works well in teams by encouraging cooperation', "Works well in teams by soliciting others' input", 'Works well in teams by being respectful of others', 'Works well in teams by encouraging participation of everyone present'],
+  ];
+  // Characters are shown as "Character", or "Character 1, 2, …" when a stage has more than one.
+  function speakerLabels(turns) {
+    const names = [];
+    turns.forEach((tu) => { if (tu.s === 'C' && tu.n && !names.includes(tu.n)) names.push(tu.n); });
+    const out = {};
+    names.forEach((n, k) => { out[n] = names.length > 1 ? 'Character ' + (k + 1) : 'Character'; });
+    return out;
+  }
+  const STAGES = CONTENT.map((c, i) => ({ ...c, items: QUESTIONS[i], who: speakerLabels(c.turns) }));
+  // An example is a participant turn index (one line) or { a, b } in seconds (a clip).
+  const COMPLETION_CODE = 'RFR-EXAMPLE-7K2Q';
+  // How many examples an answer needs.
+  const needed = (score) => (score === '1' ? 0 : 1);
+  const ANCHORS = { 1: 'Never', 2: 'Rarely', 3: 'Sometimes', 4: 'Often', 5: 'Consistently' };
+
+  /* ---------- Copy helpers: whole strings, real plural rules, the rater's own date format ---------- */
+  const PR = new Intl.PluralRules('en');
+  const plural = (n, one, other) => (PR.select(n) === 'one' ? one : other).replace('{n}', String(n));
+  const LIST = new Intl.ListFormat('en', { style: 'long', type: 'conjunction' });
+  const DATE = new Intl.DateTimeFormat(undefined, { day: 'numeric', month: 'short' });
+  const today = () => DATE.format(new Date());
+
+  /* ---------- Question order: fixed per stage, mixed, and no reverse-worded question right after its twin ---------- */
+  const ORDERS = [[0, 3, 1, 4, 2], [0, 2, 4, 3, 1], [4, 1, 3, 0, 2], [1, 5, 4, 2, 3, 0]];
+  const selectable = (g, i) => !!g.turns[i] && g.turns[i].s === 'P' && !!g.turns[i].x;
+  const whoOf = (g, tu) => (tu.s === 'P' ? 'Participant' : g.who[tu.n] || 'Character');
+
+  /* ---------- Examples: one line (a turn index) or a clip ({ a, b } in seconds) ---------- */
+  const isRange = (e) => typeof e === 'object' && e !== null;
+  const lineEnd = (g, i) => { const nx = g.turns[i + 1]; return Math.min(nx ? nx.t : g.duration, g.turns[i].t + 15); };
+  const evStart = (g, e) => (isRange(e) ? e.a : g.turns[e].t);
+  const evEnd = (g, e) => (isRange(e) ? e.b : lineEnd(g, e));
+  const evKey = (e) => (isRange(e) ? 'r' + e.a + '-' + e.b : 'l' + e);
+  const sortEv = (g, list) => list.sort((x, y) => evStart(g, x) - evStart(g, y));
+  // A line belongs to a clip when at least half a second of it falls inside the clip.
+  const inClip = (g, i, e) => g.turns[i].t <= e.b - 0.5 && lineEnd(g, i) >= e.a + 0.5;
+  // The participant's turns in a clip, transcribed or not.
+  const clipLines = (g, e) => g.turns.map((tu, i) => i).filter((i) => g.turns[i].s === 'P' && inClip(g, i, e));
+
+  /* ---------- State ---------- */
+  const KEY = 'rf-rating-v7';
+  const blankStage = () => ({ t: 0, active: 0, answers: {}, sel: {}, better: '', notable: '', submitted: null, played: false });
+  const fresh = () => ({ view: 'stage', cur: 0, collapsed: false, toured: false, st: STAGES.map(blankStage) });
+  function isComplete(st, n) {
+    for (let pos = 0; pos < n; pos++) {
+      const v = st.answers[pos];
+      if (!v || (st.sel[pos] || []).length < needed(v)) return false;
+    }
+    return true;
+  }
+  function normalise(raw) {
+    const s = fresh();
+    if (!raw || typeof raw !== 'object') return s;
+    s.view = raw.view === 'review' ? 'review' : 'stage';
+    s.cur = [0, 1, 2, 3].includes(raw.cur) ? raw.cur : 0;
+    s.collapsed = !!raw.collapsed;
+    s.toured = !!raw.toured;
+    if (Array.isArray(raw.st)) {
+      s.st = STAGES.map((g, i) => {
+        const r = raw.st[i] && typeof raw.st[i] === 'object' ? raw.st[i] : {};
+        const n = g.items.length;
+        const out = blankStage();
+        out.t = Math.min(g.duration, Math.max(0, Number(r.t) || 0));
+        out.active = Math.min(n - 1, Math.max(0, Math.floor(Number(r.active) || 0)));
+        out.better = typeof r.better === 'string' ? r.better : '';
+        out.notable = typeof r.notable === 'string' ? r.notable : '';
+        out.submitted = typeof r.submitted === 'string' ? r.submitted : null;
+        out.played = !!r.played;
+        for (let pos = 0; pos < n; pos++) {
+          const v = r.answers && r.answers[pos];
+          if (['1', '2', '3', '4', '5'].includes(v)) out.answers[pos] = v;
+          const l = r.sel && r.sel[pos];
+          const clean = [], seen = new Set();
+          (Array.isArray(l) ? l : []).forEach((x) => {
+            let e = null;
+            if (typeof x === 'number' && Number.isInteger(x) && selectable(g, x)) e = x;
+            else if (x && typeof x === 'object' && Number.isFinite(+x.a) && Number.isFinite(+x.b)) {
+              const a = Math.max(0, Math.min(+x.a, +x.b)), b = Math.min(g.duration, Math.max(+x.a, +x.b));
+              if (b - a >= 1) e = { a: Math.round(a), b: Math.round(b) };
+            }
+            if (e !== null && !seen.has(evKey(e))) { seen.add(evKey(e)); clean.push(e); }
+          });
+          out.sel[pos] = sortEv(g, clean);
+        }
+        if (out.submitted && !isComplete(out, n)) out.submitted = null;
+        return out;
+      });
+    }
+    // Stages open in order, so nothing after the first unsubmitted stage can count as submitted.
+    const firstOpen = s.st.findIndex((x) => !x.submitted);
+    if (firstOpen >= 0) {
+      s.st.forEach((x, i) => { if (i > firstOpen) x.submitted = null; });
+      if (s.cur > firstOpen) s.cur = firstOpen;
+    }
+    if (s.view === 'review' && !s.st[s.cur].submitted && !isComplete(s.st[s.cur], STAGES[s.cur].items.length)) s.view = 'stage';
+    return s;
+  }
+  let S = fresh();
+  let canStore = true;
+  try { localStorage.setItem(KEY + '-probe', '1'); localStorage.removeItem(KEY + '-probe'); } catch (e) { canStore = false; }
+  let hadSaved = false;
+  try { const raw = JSON.parse(localStorage.getItem(KEY) || 'null'); hadSaved = !!raw; S = normalise(raw); } catch (e) { S = fresh(); }
+  if (!hadSaved && window.matchMedia && window.matchMedia('(max-width: 900px)').matches) S.collapsed = true;
+  let saveTimer = 0;
+  const writeNow = () => {
+    clearTimeout(saveTimer); saveTimer = 0;
+    if (!canStore) return;
+    try { localStorage.setItem(KEY, JSON.stringify(S)); } catch (e) { canStore = false; setSavedLine(); }
+  };
+  const save = () => { clearTimeout(saveTimer); saveTimer = setTimeout(writeNow, 250); };
+  window.addEventListener('pagehide', writeNow);
+  document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'hidden') writeNow(); });
+
+  let playing = false;
+  let pending = null; // a clip being marked: { pos, a }
+  let reviewMode = 'review'; // review | submitted | next | alldone
+  let trHold = false; // the transcript stops following playback while the pointer or focus is in it
+  let wasReady = null;
+  let trTop = false; // scroll the transcript and questions back to the top once the stage view is showing
+  const stash = {}; // examples kept for this page visit when a score is changed to 1: 'stage:pos' -> list
+  let lastToggle = { k: -1, at: 0 };
+  const G = () => STAGES[S.cur];
+  const T = () => S.st[S.cur];
+  const NQ = () => G().items.length;
+
+  /* ---------- Helpers ---------- */
+  const $ = (id) => document.getElementById(id);
+  const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+  const fmt = (sec) => { sec = Math.max(0, Math.floor(sec)); return Math.floor(sec / 60) + ':' + String(sec % 60).padStart(2, '0'); };
+  const motionOK = () => !(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches);
+  const pct = (t) => (Math.min(1, Math.max(0, t / G().duration)) * 100).toFixed(3) + '%';
+  const rowAt = (t) => { let idx = -1; G().turns.forEach((tu, i) => { if (tu.t <= t + 1.05) idx = i; }); return idx; };
+  const unlocked = (i) => S.st.slice(0, i).every((x) => !!x.submitted);
+  const ratedCount = () => S.st.filter((st) => !!st.submitted).length;
+  const allDone = () => ratedCount() === STAGES.length;
+  const nextOpenStage = () => S.st.findIndex((x) => !x.submitted);
+  const stageStatus = (i) => {
+    const st = S.st[i];
+    if (st.submitted) return { cls: 'done', sub: 'Submitted' };
+    if (!unlocked(i)) return { cls: 'locked', sub: 'Opens after stage ' + i };
+    const n = Object.keys(st.answers).length;
+    if (n || st.played) return { cls: 'started', sub: n + ' of ' + STAGES[i].items.length + ' answered' };
+    return { cls: 'todo', sub: 'Not started' };
+  };
+  const quoteText = (g, i) => g.turns[i].x + (g.turns[i].note ? ' (' + g.turns[i].note + ')' : '');
+  const evLabel = (g, e) => (isRange(e) ? fmt(e.a) + '–' + fmt(e.b) : fmt(g.turns[e].t));
+  const evSpoken = (g, e) => (isRange(e) ? 'the clip ' + fmt(e.a) + ' to ' + fmt(e.b) : 'the line at ' + fmt(g.turns[e].t));
+  const evText = (g, e) => {
+    if (!isRange(e)) return quoteText(g, e);
+    const ls = clipLines(g, e);
+    const said = ls.filter((i) => g.turns[i].x).map((i) => g.turns[i].x);
+    const untranscribed = ls.length - said.length;
+    const head = plural(ls.length, 'Clip with {n} participant line', 'Clip with {n} participant lines') + (untranscribed ? ' (' + plural(untranscribed, '{n} not transcribed', '{n} not transcribed') + ')' : '');
+    return said.length ? head + ': ' + said.join(' … ') : head;
+  };
+  // Add buttons, the strip and Mark a clip only show while the open question needs an example.
+  const toolsOn = () => { const st = T(), v = st.answers[st.active]; return !st.submitted && !!v && v !== '1'; };
+  let annBuf = [], annTimer = 0;
+  function announce(text) {
+    annBuf.push(text); clearTimeout(annTimer);
+    annTimer = setTimeout(() => { const a = $('announce'), msg = annBuf.join(' '); annBuf = []; a.textContent = ''; setTimeout(() => { a.textContent = msg; }, 30); }, 0);
+  }
+  function setSavedLine() {
+    const el = $('saved');
+    el.textContent = canStore ? 'Your answers are saved in this browser.' : "This browser can't save your answers. Keep this page open until you have your completion code.";
+    el.classList.toggle('warn', !canStore);
+  }
+
+  /* ---------- Side menu ---------- */
+  function applyCollapsed() {
+    $('app').classList.toggle('collapsed', S.collapsed);
+    $('collapse').setAttribute('aria-label', S.collapsed ? 'Show menu' : 'Hide menu');
+    $('collapse').title = S.collapsed ? 'Show menu' : 'Hide menu';
+    renderNav(); fit();
+  }
+  $('collapse').addEventListener('click', () => { S.collapsed = !S.collapsed; save(); applyCollapsed(); });
+  function renderNav() {
+    $('nav-list').innerHTML = STAGES.map((g, i) => {
+      const s = stageStatus(i);
+      const here = i === S.cur;
+      const num = s.cls === 'done' ? ICON.check : s.cls === 'locked' ? ICON.lock : String(i + 1);
+      const tipAttr = S.collapsed ? ` title="Stage ${i + 1}: ${esc(s.sub)}"` : '';
+      return `<li><button type="button" class="nav-item ${s.cls}" data-i="${i}"${tipAttr}${here ? ' aria-current="page"' : ''}${s.cls === 'locked' ? ' aria-disabled="true"' : ''}><span class="num" aria-hidden="true">${num}</span><span class="lbl"><b>Stage ${i + 1}</b><span>${esc(s.sub)}</span></span>${S.collapsed ? `<span class="sr">Stage ${i + 1}, ${esc(s.sub)}</span>` : ''}</button></li>`;
+    }).join('');
+    $('open-tour').hidden = allDone();
+    const code = $('nav-code');
+    const state = allDone() ? 'ready' : 'todo';
+    if (code.dataset.state === state) return;
+    code.dataset.state = state;
+    code.className = 'nav-code' + (allDone() ? ' ready' : '');
+    if (allDone()) {
+      code.innerHTML = `<span>All 4 stages are done. Your completion code:</span><span class="code" id="nav-code-text">${COMPLETION_CODE}</span><button class="btn small" type="button" id="nav-copy">Copy code</button><span>Paste it into CloudResearch Connect to finish.</span><span class="copy-help" id="nav-copy-help" hidden></span>`;
+      $('nav-copy').addEventListener('click', (ev) => copyCode(ev.currentTarget, $('nav-code-text'), $('nav-copy-help')));
+    } else {
+      code.textContent = 'Your completion code appears here after stage 4.';
+    }
+  }
+  $('nav-list').addEventListener('click', (e) => { const b = e.target.closest('.nav-item'); if (b) openStage(+b.dataset.i); });
+  function copyCode(btn, codeEl, helpEl) {
+    const done = () => { btn.textContent = 'Copied'; announce('Completion code copied.'); setTimeout(() => { btn.textContent = 'Copy code'; }, 4000); };
+    const fallback = () => {
+      const r = document.createRange(); r.selectNodeContents(codeEl);
+      const sel = window.getSelection(); sel.removeAllRanges(); sel.addRange(r);
+      const msg = "Copying didn't work in this browser. Copy the code by hand, or type it into CloudResearch Connect.";
+      if (helpEl) { helpEl.textContent = msg; helpEl.hidden = false; }
+      announce(msg);
+    };
+    try { navigator.clipboard.writeText(COMPLETION_CODE).then(done, fallback); } catch (e) { fallback(); }
+  }
+
+  /* ---------- Views ---------- */
+  const VIEWS = ['stage', 'review'];
+  function showView(v, focusHeading) {
+    // A submitted stage is never shown as editable: it opens on its answers page.
+    if (v === 'stage' && T().submitted) { v = 'review'; if (reviewMode !== 'alldone') reviewMode = 'submitted'; }
+    S.view = v; save();
+    VIEWS.forEach((name) => { $('view-' + name).hidden = name !== v; });
+    $('skip-q').hidden = v !== 'stage';
+    if (v !== 'stage') { pause(); cancelPending(); }
+    if (v === 'review') renderReview();
+    renderNav();
+    if (v === 'stage') {
+      if (trTop) { trTop = false; trScroll.scrollTop = 0; $('rate-sec').scrollTop = 0; }
+      fit(); tick(true, false);
+    }
+    if (focusHeading) {
+      const target = { stage: 'enc-h', review: 'rv-h' }[v];
+      window.scrollTo(0, 0);
+      $(target).focus({ preventScroll: true });
+    }
+  }
+  function openStage(i) {
+    if (!unlocked(i)) { announce('Stage ' + (i + 1) + ' opens after you submit stage ' + i + '.'); return; }
+    if (i !== S.cur) { pause(); cancelPending(); S.cur = i; save(); renderStage(); }
+    if (S.st[i].submitted) { reviewMode = 'submitted'; showView('review', true); return; }
+    showView('stage', true);
+  }
+
+  /* ---------- Stage ---------- */
+  function renderStage() {
+    const g = G(), st = T(), i = S.cur;
+    $('enc-h').innerHTML = `Stage ${i + 1} <span class="of">of 4</span>`;
+    const mins = Math.max(1, Math.round(g.duration / 60));
+    $('how').textContent = g.convs.length > 1
+      ? `Press Play to watch ${g.convs.length === 2 ? 'two' : g.convs.length} short conversations (${mins} minutes in all), then answer the questions.`
+      : `Press Play to watch the ${mins}-minute conversation, then answer the questions.`;
+    $('how').hidden = !!st.played;
+    $('play').classList.toggle('primary', !st.played);
+    setPlayUI();
+    track.setAttribute('aria-valuemax', String(g.duration));
+    $('q-total').textContent = String(NQ());
+    pending = null; tip('');
+    renderTranscript(); renderItems();
+    trTop = true;
+    setActive(Math.min(st.active, NQ() - 1), true);
+    wasReady = null; updateGate(true);
+    lastNow = -2;
+    tick(true, false);
+    fit();
+  }
+
+  /* ---------- The bar: click or drag the knob to move, keys for the slider ---------- */
+  const track = $('track');
+  track.addEventListener('pointerdown', (e) => {
+    if (e.button !== 0) return;
+    e.preventDefault();
+    track.focus({ preventScroll: true });
+    const at = (x) => { const r = track.getBoundingClientRect(); seek(Math.min(1, Math.max(0, (x - r.left) / r.width)) * G().duration); };
+    at(e.clientX);
+    try { track.setPointerCapture(e.pointerId); } catch (err) { /* not supported */ }
+    const id = e.pointerId;
+    const move = (ev) => { if (ev.pointerId === id) at(ev.clientX); };
+    const stop = () => { track.removeEventListener('pointermove', move); track.removeEventListener('pointerup', stop); track.removeEventListener('pointercancel', stop); track.removeEventListener('lostpointercapture', stop); };
+    track.addEventListener('pointermove', move); track.addEventListener('pointerup', stop); track.addEventListener('pointercancel', stop); track.addEventListener('lostpointercapture', stop);
+  });
+  track.addEventListener('keydown', (e) => {
+    if (e.key === ' ') { e.preventDefault(); e.stopPropagation(); if (!e.repeat) toggle(); return; }
+    const step = { ArrowRight: 5, ArrowUp: 5, ArrowLeft: -5, ArrowDown: -5, PageUp: 30, PageDown: -30 }[e.key];
+    if (step) { e.preventDefault(); e.stopPropagation(); seek(T().t + step); return; }
+    if (e.key === 'Home') { e.preventDefault(); e.stopPropagation(); seek(0); return; }
+    if (e.key === 'End') { e.preventDefault(); e.stopPropagation(); seek(G().duration); }
+  });
+  const bandHtml = (g, a, b, cls) => `<span class="band ${cls}" style="left:${pct(a)};width:${Math.max(0, (b - a) / g.duration * 100).toFixed(3)}%"></span>`;
+  function renderBands() {
+    const g = G(), st = T();
+    const parts = (st.sel[st.active] || []).map((e) => bandHtml(g, evStart(g, e), evEnd(g, e), 'cur'));
+    if (pending) parts.push(bandHtml(g, Math.min(pending.a, st.t), Math.max(pending.a, st.t), 'pending'));
+    $('bands').innerHTML = parts.join('');
+  }
+
+  /* ---------- Clips: Mark a clip starts at the current moment and plays; End clip stops ---------- */
+  function tip(text, warn) { const el = $('clip-tip'); el.textContent = text || ''; el.hidden = !text; el.classList.toggle('warn', !!warn); }
+  function updateClipUI() {
+    const b = $('period'), st = T();
+    $('clip-ctl').hidden = !(toolsOn() || pending);
+    b.dataset.pending = String(!!pending);
+    b.innerHTML = pending
+      ? ICON.stop + `<span>End clip</span><span class="sr"> that started at ${fmt(pending.a)}</span>`
+      : ICON.clip + `<span>Mark a clip</span><span class="sr"> for question ${st.active + 1}</span>`;
+    $('clip-cancel').hidden = !pending;
+  }
+  function cancelPending(msg) {
+    if (!pending) return;
+    pending = null; pause(); renderBands(); updateClipUI();
+    tip(msg || '', !!msg);
+    if (msg) announce(msg);
+  }
+  // Ends the clip being marked at the current moment. Used by End clip, and when the recording runs out.
+  function finishClip() {
+    const g = G(), st = T();
+    if (!pending) return;
+    const { pos, a } = pending, b = st.t;
+    pending = null; pause(); updateClipUI();
+    if (Math.abs(b - a) < 1) {
+      const msg = 'That clip is under a second long. Press Mark a clip, let it play a few seconds, then press End clip.';
+      tip(msg, true); announce(msg); renderBands(); return;
+    }
+    if (!clipLines(g, { a: Math.min(a, b), b: Math.max(a, b) }).length) {
+      const msg = "That clip doesn't include the participant speaking. Press Mark a clip where the participant is talking.";
+      tip(msg, true); announce(msg); renderBands(); return;
+    }
+    tip('');
+    addRange(pos, Math.min(a, b), Math.max(a, b));
+  }
+  $('period').addEventListener('click', () => {
+    const g = G(), st = T();
+    if (st.submitted) return;
+    if (!pending) {
+      if (st.t >= g.duration - 1) {
+        const msg = 'First go to where the moment starts: click the bar or a time in the transcript. Then press Mark a clip.';
+        tip(msg, true); announce(msg); return;
+      }
+      pending = { pos: st.active, a: st.t };
+      tip(`Clip started at ${fmt(st.t)}. Press End clip when the moment is over.`);
+      announce(`Clip started at ${fmt(st.t)}. The video is playing. Press End clip when the moment is over.`);
+      renderBands(); updateClipUI();
+      if (!playing) play();
+      return;
+    }
+    finishClip();
+  });
+  $('clip-cancel').addEventListener('click', () => { cancelPending('Clip cancelled.'); $('period').focus(); });
+  function addRange(pos, a, b) {
+    const g = G(), st = T();
+    if (st.submitted || pos == null || pos >= NQ()) return;
+    a = Math.max(0, Math.floor(a)); b = Math.min(g.duration, Math.ceil(b));
+    if (b - a < 1) { renderBands(); return; }
+    const list = st.sel[pos] || (st.sel[pos] = []);
+    const e = { a, b };
+    if (list.some((x) => evKey(x) === evKey(e))) { announce(`The clip ${fmt(a)} to ${fmt(b)} is already an example for question ${pos + 1}.`); renderBands(); return; }
+    list.push(e); sortEv(g, list);
+    announce(`Added the clip ${fmt(a)} to ${fmt(b)} to question ${pos + 1}.`);
+    afterExampleChange(pos);
+  }
+  function toggleLine(pos, k) {
+    const g = G(), st = T();
+    if (st.submitted || pos == null || pos >= NQ() || !selectable(g, k)) return;
+    // A quick second press on the same line (a double-click) doesn't undo the first.
+    const now = Date.now();
+    if (lastToggle.k === k && now - lastToggle.at < 450) return;
+    lastToggle = { k, at: now };
+    const list = st.sel[pos] || (st.sel[pos] = []);
+    const has = list.includes(k);
+    if (has) st.sel[pos] = list.filter((x) => x !== k);
+    else { list.push(k); sortEv(g, list); }
+    announce(has ? `Removed the line at ${fmt(g.turns[k].t)} from question ${pos + 1}.` : `Added the line at ${fmt(g.turns[k].t)} to question ${pos + 1}.`);
+    afterExampleChange(pos);
+  }
+  function removeExample(pos, idx) {
+    const g = G(), st = T();
+    if (st.submitted) return;
+    const e = (st.sel[pos] || [])[idx];
+    if (e === undefined) return;
+    st.sel[pos] = st.sel[pos].filter((x, k) => k !== idx);
+    announce('Removed ' + evSpoken(g, e) + ' from question ' + (pos + 1) + '.');
+    afterExampleChange(pos);
+  }
+  function afterExampleChange(pos) {
+    save(); renderWhy(pos); renderSummary(pos); renderBands(); updateRows(); updateGate(); renderNav(); scrollToItem(pos);
+  }
+
+  /* ---------- Transcript ---------- */
+  function renderTranscript() {
+    const g = G(), rows = [], parts = g.convs.length > 1;
+    g.turns.forEach((tu, i) => {
+      if (parts && (i === 0 || g.turns[i - 1].c !== tu.c)) rows.push(`<li class="part">Conversation ${tu.c + 1}</li>`);
+      const txt = tu.x ? esc(tu.x) : tu.s === 'P' ? 'No transcript for this line. To use it as an example, mark a clip.' : 'No transcript for this line.';
+      const note = tu.note && tu.x ? `<span class="note">${esc(tu.note)}</span>` : '';
+      const add = selectable(g, i) ? `<button type="button" class="add-btn" data-i="${i}"></button>` : '';
+      rows.push(`<li class="turn ${tu.s === 'P' ? 'p' : 'c'}" data-i="${i}"><button type="button" class="time-btn" data-i="${i}">${fmt(tu.t)}<span class="sr">, play from here</span></button><div class="line"><span class="who">${esc(whoOf(g, tu))}</span><span class="txt${tu.x ? '' : ' missing'}">${txt}</span>${note}<span class="also"></span></div>${add}</li>`);
+    });
+    $('tr-list').innerHTML = rows.join('');
+  }
+  $('tr-list').addEventListener('click', (e) => {
+    const tb = e.target.closest('.time-btn');
+    if (tb) { seek(G().turns[+tb.dataset.i].t - 1); if (!playing) play(); return; }
+    const ab = e.target.closest('.add-btn');
+    if (ab) toggleLine(T().active, +ab.dataset.i);
+  });
+  const trScroll = $('tr-scroll');
+  trScroll.addEventListener('pointerenter', () => { trHold = true; });
+  trScroll.addEventListener('pointerleave', () => { trHold = false; });
+  trScroll.addEventListener('focusin', () => { trHold = true; });
+  trScroll.addEventListener('focusout', (e) => { if (!trScroll.contains(e.relatedTarget)) trHold = false; });
+  function updateRows() {
+    const g = G(), st = T(), act = st.active;
+    const mine = new Set((st.sel[act] || []).filter((e) => !isRange(e)));
+    const others = {};
+    Object.keys(st.sel).forEach((p) => {
+      if (+p === act) return;
+      (st.sel[p] || []).forEach((e) => { if (!isRange(e)) (others[e] = others[e] || []).push(+p + 1); });
+    });
+    $('tr-list').classList.toggle('tools-off', !toolsOn());
+    $('tr-list').querySelectorAll('.turn').forEach((li) => {
+      const i = +li.dataset.i, on = mine.has(i);
+      li.classList.toggle('sel', on);
+      const b = li.querySelector('.add-btn');
+      if (b) {
+        b.classList.toggle('on', on);
+        b.innerHTML = on
+          ? `<span class="i-on" aria-hidden="true">${ICON.check}</span><span class="i-rm" aria-hidden="true">${ICON.x}</span><span>Added</span><span class="sr">: the line at ${fmt(g.turns[i].t)} is an example for question ${act + 1}. Press to remove it.</span>`
+          : ICON.plus + `<span>Add</span><span class="sr"> the line at ${fmt(g.turns[i].t)} to question ${act + 1}</span>`;
+      }
+      const qs = (others[i] || []).sort((a, b) => a - b);
+      li.querySelector('.also').textContent = !qs.length ? '' : qs.length === 1 ? 'Added to question ' + qs[0] : 'Added to questions ' + LIST.format(qs.map(String));
+    });
+  }
+  function updateTools() {
+    const on = toolsOn(), st = T();
+    if (pending && !on) cancelPending('Clip cancelled because question ' + (st.active + 1) + " doesn't need an example now.");
+    const strip = $('sel-strip');
+    strip.hidden = !on;
+    if (on) strip.textContent = `Adding examples to question ${st.active + 1}`;
+    updateClipUI(); updateRows();
+  }
+
+  /* ---------- Player (simulated clock) ---------- */
+  let lastNow = -2, lastFrame = 0, raf = 0;
+  function seek(t) {
+    T().t = Math.min(G().duration, Math.max(0, t)); save();
+    if ($('clip-tip').classList.contains('warn') && !pending) tip('');
+    tick(true, true);
+  }
+  function setPlayUI() {
+    $('play-label').textContent = playing ? 'Pause' : 'Play';
+    $('play-icon').innerHTML = playing ? ICON.pause : ICON.play;
+    $('screen').classList.toggle('playing', playing);
+  }
+  function play() {
+    const st = T();
+    if (st.t >= G().duration - 0.05) {
+      if (pending) return; // never wrap round to 0:00 in the middle of a clip
+      st.t = 0;
+    }
+    const first = !st.played;
+    playing = true; st.played = true; save();
+    if (first) { $('how').hidden = true; $('play').classList.remove('primary'); renderNav(); fit(); }
+    setPlayUI();
+    lastFrame = 0; cancelAnimationFrame(raf); raf = requestAnimationFrame(loop);
+  }
+  function pause() { playing = false; cancelAnimationFrame(raf); setPlayUI(); save(); }
+  const toggle = () => (playing ? pause() : play());
+  function loop(now) {
+    if (!playing) return;
+    if (!lastFrame) lastFrame = now;
+    const dt = Math.max(0, Math.min(0.25, (now - lastFrame) / 1000)); lastFrame = now;
+    T().t += dt;
+    if (T().t >= G().duration) { T().t = G().duration; pause(); if (pending) { tick(true, true); finishClip(); return; } }
+    tick(false, true);
+    if (playing) raf = requestAnimationFrame(loop);
+  }
+  function tick(force, follow) {
+    const g = G(), t = T().t;
+    $('clock').textContent = fmt(t) + ' / ' + fmt(g.duration);
+    $('head').style.left = pct(t);
+    // The slider's value isn't updated every second while it has focus during playback, so it isn't read over the recording.
+    if (force || !playing || document.activeElement !== track) { track.setAttribute('aria-valuenow', String(Math.round(t))); track.setAttribute('aria-valuetext', fmt(t) + ' of ' + fmt(g.duration)); }
+    if (pending) {
+      const pb = $('bands').querySelector('.band.pending'), a = Math.min(pending.a, t), b = Math.max(pending.a, t);
+      if (pb) { pb.style.left = pct(a); pb.style.width = ((b - a) / g.duration * 100).toFixed(3) + '%'; }
+    }
+    const now = rowAt(t);
+    const tu = g.turns[now];
+    const speaking = !!tu && t >= tu.t - 0.05 && t < lineEnd(g, now);
+    const sp = $('speaking');
+    sp.hidden = !speaking;
+    if (speaking) sp.textContent = whoOf(g, tu) + ' speaking';
+    if (now === lastNow && !force) return;
+    lastNow = now;
+    $('tr-list').querySelectorAll('.turn').forEach((li) => {
+      const on = +li.dataset.i === now;
+      li.classList.toggle('now', on);
+      if (on) li.setAttribute('aria-current', 'true'); else li.removeAttribute('aria-current');
+    });
+    if (now >= 0 && follow && !trHold) {
+      const li = $('tr-list').querySelector('.turn[data-i="' + now + '"]');
+      const box = trScroll;
+      if (li && box.clientHeight > 0) {
+        const strip = $('sel-strip');
+        const headH = strip.hidden ? 0 : strip.offsetHeight;
+        const top = li.offsetTop;
+        if (top - headH < box.scrollTop || top + li.offsetHeight > box.scrollTop + box.clientHeight) {
+          box.scrollTo({ top: Math.max(0, top - headH - 40), behavior: motionOK() ? 'smooth' : 'auto' });
+        }
+      }
+    }
+  }
+  $('play').addEventListener('click', toggle);
+  $('screen').addEventListener('click', () => { $('screen').focus({ preventScroll: true }); toggle(); });
+  $('screen').addEventListener('contextmenu', (e) => e.preventDefault());
+
+  /* ---------- Questions: one open at a time ---------- */
+  function renderItems() {
+    const g = G(), st = T(), order = ORDERS[S.cur];
+    $('items').innerHTML = order.map((bank, pos) => {
+      const q = esc(g.items[bank]);
+      const opts = [1, 2, 3, 4, 5].map((v) => `<label class="opt"><input type="radio" name="s${pos}" value="${v}"${st.answers[pos] === String(v) ? ' checked' : ''}><span><b>${v}</b> <i>${ANCHORS[v]}</i></span></label>`).join('');
+      return `<div class="item" id="item-${pos}" data-pos="${pos}"><h3 class="q-h"><button type="button" class="q-head" id="qh-${pos}" aria-expanded="false" aria-controls="body-${pos}"><span class="n">${pos + 1}</span><span class="qt">${q}</span><span class="sum" id="sum-${pos}"></span></button></h3><div class="q-body" id="body-${pos}" hidden><fieldset class="opts"><legend class="sr">Question ${pos + 1}: ${q}</legend>${opts}</fieldset><div class="why-box" id="why-${pos}"></div></div></div>`;
+    }).join('');
+    for (let pos = 0; pos < NQ(); pos++) renderSummary(pos);
+  }
+  function renderSummary(pos) {
+    const el = $('sum-' + pos); if (!el) return;
+    const st = T(), v = st.answers[pos], n = (st.sel[pos] || []).length;
+    el.classList.toggle('need', !!v && n < needed(v));
+    if (!v) el.innerHTML = '';
+    else if (v === '1') el.innerHTML = ICON.check + '<span>1 Never</span>';
+    else if (n < needed(v)) el.innerHTML = `<span>${v} ${ANCHORS[v]} · Needs an example</span>`;
+    else el.innerHTML = ICON.check + `<span>${v} ${ANCHORS[v]} · ${plural(n, '{n} example', '{n} examples')}</span>`;
+  }
+  const questionDone = (pos) => { const st = T(), v = st.answers[pos]; return !!v && (st.sel[pos] || []).length >= needed(v); };
+  function nextOpenQuestion(from) {
+    for (let k = 1; k < NQ(); k++) { const p = (from + k) % NQ(); if (!questionDone(p)) return p; }
+    return -1;
+  }
+  function renderWhy(pos) {
+    const box = $('why-' + pos); if (!box) return;
+    const g = G(), st = T(), list = st.sel[pos] || [], v = st.answers[pos];
+    const ae = document.activeElement;
+    const focusKey = box.contains(ae) ? ae.dataset.key || '' : null;
+    let html = '';
+    if (list.length) {
+      html += `<span class="lbl">Your examples</span><ol class="quotes">${list.map((e, k) => `<li><button type="button" class="go" data-k="${k}" data-key="go-${evKey(e)}">${evLabel(g, e)}<span class="sr">, play this example</span></button><span class="q">${esc(evText(g, e))}</span>${st.submitted ? '<span></span>' : `<button type="button" class="x" data-k="${k}" data-key="x-${evKey(e)}" aria-label="Remove ${evSpoken(g, e)} from question ${pos + 1}">${ICON.x}</button>`}</li>`).join('')}</ol>`;
+    }
+    if (v === '1' && !list.length) html += stash[S.cur + ':' + pos] ? '<p class="hint quiet">No example needed for 1. Your examples come back if you pick 2 to 5 again.</p>' : '<p class="hint quiet">No example needed for 1.</p>';
+    else if (v && list.length < needed(v)) html += '<p class="hint">Add an example: press Add next to a participant line in the transcript. Or go to where the moment starts and press Mark a clip under the video.</p>';
+    if (questionDone(pos) && !st.submitted) {
+      const nxt = nextOpenQuestion(pos);
+      html += nxt >= 0
+        ? `<div><button class="btn next-q" type="button" data-key="next-q" data-to="${nxt}">Next question</button></div>`
+        : '<p class="hint quiet">All questions are answered. Press Review answers below.</p>';
+    }
+    box.innerHTML = html;
+    box.hidden = !html;
+    if (focusKey !== null) {
+      const same = focusKey && box.querySelector(`[data-key="${focusKey}"]`);
+      const target = same || box.querySelector('.x, .go') || box.querySelector('.next-q') || $('qh-' + pos);
+      target.focus({ preventScroll: true });
+    }
+  }
+  function setActive(pos, force) {
+    const st = T();
+    const changed = pos !== st.active;
+    if (changed) {
+      if (pending) {
+        pending = null; pause();
+        const m = `Clip cancelled because you moved to question ${pos + 1}.`;
+        tip(m, true); announce(m);
+      } else tip('');
+    }
+    st.active = pos; save();
+    $('items').querySelectorAll('.item').forEach((it) => {
+      const on = +it.dataset.pos === pos;
+      it.classList.toggle('open', on);
+      const h = it.querySelector('.q-head');
+      h.setAttribute('aria-expanded', String(on));
+      if (on) h.setAttribute('aria-disabled', 'true'); else h.removeAttribute('aria-disabled');
+      it.querySelector('.q-body').hidden = !on;
+    });
+    if (changed || force) {
+      if ($('q-now').textContent !== String(pos + 1)) $('q-now').textContent = String(pos + 1);
+      renderWhy(pos); renderBands(); updateTools();
+    }
+  }
+  function scrollToItem(pos) { const it = $('item-' + pos); if (it) it.scrollIntoView({ block: 'nearest', behavior: motionOK() ? 'smooth' : 'auto' }); }
+  function focusItem(pos) { setActive(pos); scrollToItem(pos); $('qh-' + pos).focus({ preventScroll: true }); }
+  $('items').addEventListener('click', (e) => {
+    const head = e.target.closest('.q-head');
+    if (head) { const pos = +head.closest('.item').dataset.pos; if (pos !== T().active) { setActive(pos); scrollToItem(pos); } return; }
+    const go = e.target.closest('.go');
+    if (go) {
+      const pos = +go.closest('.item').dataset.pos, ev = (T().sel[pos] || [])[+go.dataset.k];
+      if (ev !== undefined) { seek(evStart(G(), ev) - (isRange(ev) ? 0 : 1)); if (!playing) play(); }
+      return;
+    }
+    const x = e.target.closest('.x');
+    if (x) { removeExample(+x.closest('.item').dataset.pos, +x.dataset.k); return; }
+    const nx = e.target.closest('.next-q');
+    if (nx) focusItem(+nx.dataset.to);
+  });
+  $('items').addEventListener('change', (e) => {
+    if (e.target.type !== 'radio') return;
+    const it = e.target.closest('.item'); if (!it) return;
+    const pos = +it.dataset.pos;
+    const st = T();
+    if (st.submitted) return;
+    const v = e.target.value, key = S.cur + ':' + pos;
+    st.answers[pos] = v;
+    // A score of 1 needs no example, so its examples are put aside, and come back if 2 to 5 is picked again.
+    if (v === '1' && (st.sel[pos] || []).length) { stash[key] = st.sel[pos]; st.sel[pos] = []; announce(`Examples removed from question ${pos + 1}, because a score of 1 needs none.`); }
+    else if (v !== '1' && !(st.sel[pos] || []).length && stash[key]) { st.sel[pos] = stash[key]; delete stash[key]; announce(`Your examples for question ${pos + 1} are back.`); }
+    if (!toolsOn() && !pending) tip('');
+    save(); renderWhy(pos); renderSummary(pos); updateTools(); renderBands(); updateGate(); renderNav(); scrollToItem(pos);
+  });
+  function incomplete() {
+    const st = T(), out = [];
+    for (let pos = 0; pos < NQ(); pos++) {
+      const v = st.answers[pos];
+      if (!v) out.push([pos, 'answer']);
+      else if ((st.sel[pos] || []).length < needed(v)) out.push([pos, 'example']);
+    }
+    return out;
+  }
+  function updateGate(silent) {
+    const left = incomplete();
+    const unanswered = left.filter((x) => x[1] === 'answer').length;
+    const noExample = left.filter((x) => x[1] === 'example').length;
+    const ready = !left.length;
+    $('to-review').disabled = !ready;
+    $('to-review').classList.toggle('primary', ready);
+    const msgs = [];
+    if (unanswered) msgs.push(plural(unanswered, '{n} question left to answer.', '{n} questions left to answer.'));
+    if (noExample) msgs.push(plural(noExample, '{n} answer needs an example.', '{n} answers need an example.'));
+    $('gate-why').textContent = msgs.join(' ');
+    $('gate-why').hidden = ready;
+    if (ready && wasReady === false && !silent) announce('All questions are answered. You can review your answers now.');
+    wasReady = ready;
+  }
+  $('to-review').addEventListener('click', () => { if (!incomplete().length) { reviewMode = 'review'; showView('review', true); } });
+
+  /* ---------- Review, submit and after ---------- */
+  function renderReview() {
+    const g = G(), st = T(), i = S.cur, order = ORDERS[S.cur];
+    const mode = !st.submitted ? 'review' : reviewMode === 'next' || reviewMode === 'alldone' ? reviewMode : 'submitted';
+    const listed = mode === 'review' || mode === 'submitted';
+    $('rv-intro').hidden = !listed;
+    $('rv-list-card').hidden = !listed;
+    $('rv-form').hidden = mode !== 'review';
+    $('rv-read').hidden = true;
+    $('rv-foot').hidden = !listed;
+    $('rv-submit').hidden = mode !== 'review';
+    $('rv-done').innerHTML = '';
+    if (mode === 'review') {
+      $('rv-h').innerHTML = `Review stage ${i + 1} <span class="of">of 4</span>`;
+      $('rv-intro').textContent = `Check your answers, then press Submit stage ${i + 1} at the bottom. You can't change this stage after you submit it.`;
+      $('better').value = st.better; $('notable').value = st.notable;
+      $('rv-back').innerHTML = ICON.back + `<span>Back to stage ${i + 1}</span>`;
+      $('rv-back').dataset.go = 'stage';
+      $('rv-submit').textContent = 'Submit stage ' + (i + 1);
+    } else if (mode === 'submitted') {
+      $('rv-h').innerHTML = `Stage ${i + 1} <span class="of">of 4</span>: your answers`;
+      $('rv-intro').textContent = 'You submitted this stage.';
+      const said = [['What could the participant have done better?', st.better], ['Anything else you noticed?', st.notable]].filter((x) => x[1] && x[1].trim());
+      if (said.length) { $('rv-read').innerHTML = `<h2>Your comments</h2><dl>${said.map(([q, a]) => `<dt>${q}</dt><dd>${esc(a)}</dd>`).join('')}</dl>`; $('rv-read').hidden = false; }
+      const k = nextOpenStage();
+      if (k >= 0) { $('rv-back').innerHTML = ICON.back + `<span>Back to stage ${k + 1}</span>`; $('rv-back').dataset.go = String(k); }
+      else { $('rv-back').textContent = 'Show my completion code'; $('rv-back').dataset.go = 'code'; }
+    } else if (mode === 'next') {
+      const j = nextOpenStage();
+      $('rv-h').textContent = `Stage ${i + 1} submitted`;
+      $('rv-done').innerHTML = `<div class="card done-card"><p>Stage ${j + 1} is open.</p><button class="btn primary" type="button" id="rv-next" data-i="${j}">Start stage ${j + 1}</button></div>`;
+      $('rv-next').addEventListener('click', (ev) => openStage(+ev.currentTarget.dataset.i));
+    } else {
+      $('rv-h').textContent = 'All 4 stages are done';
+      $('rv-done').innerHTML = `<div class="card done-card"><p>Your completion code:</p><div class="code-row"><span class="code" id="rvdone-code">${COMPLETION_CODE}</span><button class="btn" type="button" id="rvdone-copy">Copy code</button></div><p>Paste it into CloudResearch Connect to finish.</p><p class="copy-help" id="rvdone-help" hidden></p></div>`;
+      $('rvdone-copy').addEventListener('click', (ev) => copyCode(ev.currentTarget, $('rvdone-code'), $('rvdone-help')));
+    }
+    if (!listed) return;
+    $('rv-list').innerHTML = order.map((bank, pos) => {
+      const v = st.answers[pos], list = st.sel[pos] || [];
+      const ex = list.length
+        ? `<ul class="ex">${list.map((e) => `<li><span class="t mono">${evLabel(g, e)}</span><span>${esc(evText(g, e))}</span></li>`).join('')}</ul>`
+        : `<span class="none">${v === '1' ? 'No example needed for 1.' : 'No examples.'}</span>`;
+      const change = mode === 'review' ? `<button class="link" type="button" data-change="${pos}">Change<span class="sr"> your answer to question ${pos + 1}</span></button>` : '';
+      return `<li class="rv-item"><span class="n">${pos + 1}</span><span class="q">${esc(g.items[bank])}</span><span class="score"><span class="score-pill">${v ? v + ' · ' + ANCHORS[v] : 'Not answered'}</span></span>${ex}<span class="act">${change}</span></li>`;
+    }).join('');
+  }
+  $('rv-list').addEventListener('click', (e) => {
+    const b = e.target.closest('[data-change]');
+    if (b) { showView('stage'); focusItem(+b.dataset.change); }
+  });
+  ['better', 'notable'].forEach((id) => { $(id).addEventListener('input', (e) => { if (!T().submitted) { T()[id] = e.target.value; save(); } }); });
+  $('rv-back').addEventListener('click', () => {
+    const go = $('rv-back').dataset.go;
+    if (go === 'stage') { showView('stage', true); return; }
+    if (go === 'code') { S.cur = STAGES.length - 1; reviewMode = 'alldone'; renderStage(); showView('review', true); return; }
+    openStage(+go);
+  });
+  $('rv-submit').addEventListener('click', () => {
+    const st = T(), i = S.cur;
+    if (st.submitted) return;
+    const left = incomplete();
+    if (left.length) { showView('stage'); focusItem(left[0][0]); return; }
+    st.better = $('better').value; st.notable = $('notable').value;
+    st.submitted = today(); writeNow();
+    reviewMode = allDone() ? 'alldone' : 'next';
+    renderNav(); renderReview();
+    if (allDone()) {
+      $('rvdone-copy').focus();
+      announce('All 4 stages are done. Your completion code is ' + COMPLETION_CODE.split('').join(' ') + '.');
+    } else {
+      $('rv-next').focus();
+      announce(`Stage ${i + 1} submitted. Stage ${nextOpenStage() + 1} is open.`);
+    }
+  });
+
+  /* ---------- Keyboard (no hints shown; for fast raters) ---------- */
+  document.addEventListener('keydown', (e) => {
+    if (S.view !== 'stage' || e.metaKey || e.ctrlKey || e.altKey) return;
+    const t = e.target, tag = (t.tagName || '').toLowerCase();
+    if (e.key === 'Escape' && pending) {
+      const inClipCtl = !!(t.closest && t.closest('#clip-ctl'));
+      cancelPending('Clip cancelled.');
+      if (inClipCtl) $('period').focus();
+      return;
+    }
+    if (tag === 'textarea' || tag === 'select') return;
+    const inPlayer = !!(t.closest && t.closest('.player'));
+    const isControl = ['button', 'summary', 'a', 'input'].includes(tag) || t === track;
+    if (inPlayer && !isControl) {
+      if (e.key === ' ') { e.preventDefault(); if (!e.repeat) toggle(); return; }
+      if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') { e.preventDefault(); seek(T().t + (e.key === 'ArrowRight' ? 5 : -5)); return; }
+    }
+    if (/^[1-5]$/.test(e.key) && t.closest && t.closest('.item.open') && !T().submitted) {
+      e.preventDefault();
+      if (e.repeat) return;
+      const inp = $('body-' + T().active).querySelector(`input[value="${e.key}"]`);
+      if (inp && !inp.checked) { inp.checked = true; inp.dispatchEvent(new Event('change', { bubbles: true })); }
+    }
+  });
+
+  /* ---------- Desktop fit ---------- */
+  function fit() {
+    if ($('view-stage').hidden) return;
+    const top = $('enc').getBoundingClientRect().top + window.scrollY;
+    document.documentElement.style.setProperty('--enc-top', Math.round(top) + 'px');
+  }
+  window.addEventListener('resize', fit);
+
+  /* ---------- First-run tour: five short steps that point at the real screen ---------- */
+  const TOUR = [
+    { target: '.player', title: 'Watch the conversation', body: 'Press Play or click the video to start. The bar under the video shows where you are, and you can click it to jump to any moment.' },
+    { target: '.transcript', title: 'Follow along in the transcript', body: "Every line appears here with the time it was said. Click a time to play from that line. The participant is the person you're rating, and the other speakers are characters." },
+    { target: '#items', title: 'Answer one question at a time', body: 'Pick how often the participant did each thing, from 1 (Never) to 5 (Consistently). When a question is done, press Next question.' },
+    { target: '.watch', title: 'Add an example for scores of 2 to 5', body: 'Once you pick 2 to 5, an Add button appears beside each participant line, and Mark a clip appears under the video. Press Add to use a line. To use part of the video, go to where it starts, press Mark a clip, then press End clip.', demo: true },
+    { target: '.submit-row', title: 'Review, then submit', body: 'When every question has a score and the examples it needs, press Review answers to check your work before you submit. Stages open one at a time, and your completion code appears after stage 4.' },
+  ];
+  const tour = $('tour');
+  let tourStep = 0;
+  const clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
+  function placeTour() {
+    const el = document.querySelector(TOUR[tourStep].target);
+    const card = $('tour-card'), hole = $('tour-hole');
+    if (!el) return;
+    const vw = window.innerWidth, vh = window.innerHeight, pad = 12, gap = 16, r = el.getBoundingClientRect();
+    // On phones the card is a sheet. It sits at the top when the part being shown is low on the screen.
+    const sheet = vw < 640, sheetTop = sheet && (r.top + r.bottom) / 2 > vh / 2;
+    card.classList.toggle('sheet', sheet);
+    card.classList.toggle('sheet-top', sheetTop);
+    const limitT = sheetTop ? card.offsetHeight + pad : pad;
+    const limitB = sheet && !sheetTop ? vh - card.offsetHeight - pad : vh - pad;
+    const top = clamp(r.top - 6, limitT, limitB - 40), left = clamp(r.left - 6, pad, vw - pad - 40);
+    const right = clamp(r.right + 6, left + 40, vw - pad), bottom = clamp(r.bottom + 6, top + 40, limitB);
+    Object.assign(hole.style, { top: top + 'px', left: left + 'px', width: right - left + 'px', height: bottom - top + 'px' });
+    if (sheet) return;
+    const cw = card.offsetWidth, ch = card.offsetHeight;
+    let x, y;
+    if (vw - right - gap >= cw + pad) { x = right + gap; y = clamp(top, pad, vh - ch - pad); }
+    else if (left - gap >= cw + pad) { x = left - gap - cw; y = clamp(top, pad, vh - ch - pad); }
+    else if (vh - bottom - gap >= ch + pad) { y = bottom + gap; x = clamp(left, pad, vw - cw - pad); }
+    else if (top - gap >= ch + pad) { y = top - gap - ch; x = clamp(left, pad, vw - cw - pad); }
+    else { x = clamp(right - cw - gap, pad, vw - cw - pad); y = clamp(bottom - ch - gap, pad, vh - ch - pad); }
+    card.style.left = x + 'px'; card.style.top = y + 'px';
+  }
+  function renderTour() {
+    const step = TOUR[tourStep], last = tourStep === TOUR.length - 1;
+    $('tour-title').textContent = step.title;
+    $('tour-body').textContent = step.body;
+    $('tour-count').textContent = `${tourStep + 1} of ${TOUR.length}`;
+    const demo = $('tour-demo');
+    demo.hidden = !step.demo;
+    demo.innerHTML = step.demo ? `<span class="add-btn">${ICON.plus}<span>Add</span></span><span class="btn markb">${ICON.clip}<span>Mark a clip</span></span>` : '';
+    $('tour-back').hidden = tourStep === 0;
+    $('tour-next').textContent = last ? 'Start rating' : 'Next';
+    showTarget();
+    $('tour-title').focus({ preventScroll: true });
+  }
+  function showTarget() {
+    const el = document.querySelector(TOUR[tourStep].target);
+    if (el) el.scrollIntoView({ block: window.innerWidth < 640 ? 'center' : 'nearest' });
+    placeTour();
+  }
+  function openTour() {
+    if (allDone()) return;
+    if (S.view !== 'stage' || T().submitted) openStage(nextOpenStage());
+    pause(); cancelPending();
+    tourStep = 0;
+    if (!tour.open) tour.showModal();
+    renderTour();
+  }
+  tour.addEventListener('close', () => {
+    S.toured = true; save();
+    if (S.view === 'stage') { document.querySelector('.player').scrollIntoView({ block: 'nearest' }); $('play').focus({ preventScroll: true }); }
+  });
+  $('tour-next').addEventListener('click', () => { if (tourStep < TOUR.length - 1) { tourStep++; renderTour(); } else tour.close(); });
+  $('tour-back').addEventListener('click', () => { if (tourStep > 0) { tourStep--; renderTour(); } });
+  $('tour-skip').addEventListener('click', () => tour.close());
+  $('open-tour').addEventListener('click', openTour);
+  window.addEventListener('resize', () => { if (tour.open) showTarget(); });
+  // The page is held still while the tour is open; if a browser scrolls it anyway, the light follows.
+  window.addEventListener('scroll', () => { if (tour.open) placeTour(); }, { passive: true });
+
+  /* ---------- Boot ---------- */
+  function boot() {
+    setSavedLine();
+    applyCollapsed();
+    renderStage();
+  }
+  boot();
+  if (allDone()) { S.cur = STAGES.length - 1; reviewMode = 'alldone'; renderStage(); showView('review'); }
+  else {
+    showView(S.view);
+    if (!S.toured && S.view === 'stage') openTour();
+  }
+})();
+</script>
+</body>
+</html>
