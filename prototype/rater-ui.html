@@ -663,7 +663,7 @@ html:has(#tour[open]) { overflow: hidden; }
     const head = plural(ls.length, 'Clip with {n} participant line', 'Clip with {n} participant lines') + (untranscribed ? ' (' + plural(untranscribed, '{n} not transcribed', '{n} not transcribed') + ')' : '');
     return said.length ? head + ': ' + said.join(' … ') : head;
   };
-  // Add buttons, the strip and Mark a clip only show while the open question needs an example.
+  // Add buttons, the strip and Add a video clip only show while the open question needs an example.
   const toolsOn = () => { const st = T(), v = st.answers[st.active]; return !st.submitted && !!v && v !== '1'; };
   let annBuf = [], annTimer = 0;
   function announce(text) {
@@ -811,7 +811,7 @@ html:has(#tour[open]) { overflow: hidden; }
     $('bands').innerHTML = parts.join('');
   }
 
-  /* ---------- Clips: Mark a clip starts at the current moment and plays; End clip stops ---------- */
+  /* ---------- Clips: Add a video clip starts at the current moment and plays; End clip stops ---------- */
   function tip(text, warn) { const el = $('clip-tip'); el.textContent = text || ''; el.hidden = !text; el.classList.toggle('warn', !!warn); }
   function updateClipUI() {
     const b = $('period'), st = T();
