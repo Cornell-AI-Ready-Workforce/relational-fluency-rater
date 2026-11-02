@@ -161,7 +161,8 @@ button, input, select, textarea { font: inherit; color: inherit; }
 .speaking { position: absolute; left: 10px; bottom: 9px; color: #fff; background: rgba(0, 0, 0, .6); border-radius: 4px; font: 500 0.75rem/1.2 var(--sans); padding: 4px 8px; }
 
 .track { position: relative; height: 2rem; background: var(--surface-2); border: 1px solid var(--field); border-radius: var(--r-sm); cursor: pointer; touch-action: none; user-select: none; }
-.bands { position: absolute; inset: 0; pointer-events: none; }
+.bands, .marks { position: absolute; inset: 0; pointer-events: none; }
+.mark { position: absolute; top: 50%; width: 8px; height: 8px; margin: -4px 0 0 -4px; transform: rotate(45deg); border-radius: 1px; background: var(--muted); }
 .band { position: absolute; top: 4px; bottom: 4px; min-width: 4px; border-radius: 3px; background: var(--mark-bg); background: color-mix(in srgb, var(--mark) 35%, transparent); box-shadow: inset 0 0 0 1.5px var(--mark); }
 .band.pending { background: transparent; box-shadow: none; outline: 1.5px dashed var(--mark); outline-offset: -1.5px; }
 .track .head { position: absolute; top: -4px; bottom: -4px; width: 2px; margin-left: -1px; background: var(--ink); pointer-events: none; border-radius: 1px; }
@@ -348,6 +349,7 @@ html:has(#tour[open]) { overflow: hidden; }
   .track { border-color: CanvasText; }
   .track .head, .track .head::after { forced-color-adjust: none; background: CanvasText; }
   .band { forced-color-adjust: none; background: Highlight; box-shadow: none; }
+  .mark { forced-color-adjust: none; background: CanvasText; }
   .band.pending { background: transparent; outline-color: Highlight; }
   .big-play, .speaking { border: 1px solid CanvasText; }
   .quotes li { border-color: CanvasText; }
@@ -363,7 +365,7 @@ html:has(#tour[open]) { overflow: hidden; }
 <a class="skip" href="#rate-sec" id="skip-q">Skip to the questions</a>
 <div class="sr" id="announce" role="status" aria-live="polite"></div>
 <div class="app" id="app">
-  <nav class="side" id="side" aria-label="Stages">
+  <nav class="side" id="side" aria-label="Recordings">
     <div class="side-top">
       <div class="brand">Relational Fluency</div>
       <button class="icon-btn" id="collapse" type="button" aria-label="Hide menu">
@@ -379,7 +381,7 @@ html:has(#tour[open]) { overflow: hidden; }
     <!-- STAGE -->
     <section id="view-stage" aria-labelledby="enc-h">
       <div class="enc-head">
-        <h1 id="enc-h" tabindex="-1">Stage 1 <span class="of">of 4</span></h1>
+        <h1 id="enc-h" tabindex="-1">Recording 1 <span class="of">of 4</span></h1>
         <p class="how" id="how"></p>
         <p class="saved" id="saved"></p>
       </div>
@@ -394,6 +396,7 @@ html:has(#tour[open]) { overflow: hidden; }
             </div>
             <div class="track" id="track" role="slider" tabindex="0" aria-label="Position in video" aria-valuemin="0" aria-valuemax="0" aria-valuenow="0" aria-valuetext="0:00">
               <div class="bands" id="bands" aria-hidden="true"></div>
+              <div class="marks" id="marks" aria-hidden="true"></div>
               <div class="head" id="head"></div>
             </div>
             <div class="controls">
@@ -435,7 +438,7 @@ html:has(#tour[open]) { overflow: hidden; }
     <!-- REVIEW -->
     <section id="view-review" aria-labelledby="rv-h" hidden>
       <div class="enc-head">
-        <h1 id="rv-h" tabindex="-1">Review stage 1 <span class="of">of 4</span></h1>
+        <h1 id="rv-h" tabindex="-1">Recording 1 <span class="of">of 4</span>: check your answers</h1>
       </div>
       <div class="review">
         <div id="rv-done"></div>
@@ -455,7 +458,7 @@ html:has(#tour[open]) { overflow: hidden; }
         <div class="card rv-comments" id="rv-read" hidden></div>
         <div class="rv-foot" id="rv-foot">
           <button class="btn" id="rv-back" type="button"></button>
-          <button class="btn primary" id="rv-submit" type="button">Submit stage 1</button>
+          <button class="btn primary" id="rv-submit" type="button">Submit answers</button>
         </div>
       </div>
     </section>
@@ -644,7 +647,7 @@ html:has(#tour[open]) { overflow: hidden; }
   const stageStatus = (i) => {
     const st = S.st[i];
     if (st.submitted) return { cls: 'done', sub: 'Submitted' };
-    if (!unlocked(i)) return { cls: 'locked', sub: 'Opens after stage ' + i };
+    if (!unlocked(i)) return { cls: 'locked', sub: 'Opens after recording ' + i };
     const n = Object.keys(st.answers).length;
     if (n || st.played) return { cls: 'started', sub: n + ' of ' + STAGES[i].items.length + ' answered' };
     return { cls: 'todo', sub: 'Not started' };
@@ -686,8 +689,8 @@ html:has(#tour[open]) { overflow: hidden; }
       const s = stageStatus(i);
       const here = i === S.cur;
       const num = s.cls === 'done' ? ICON.check : s.cls === 'locked' ? ICON.lock : String(i + 1);
-      const tipAttr = S.collapsed ? ` title="Stage ${i + 1}: ${esc(s.sub)}"` : '';
-      return `<li><button type="button" class="nav-item ${s.cls}" data-i="${i}"${tipAttr}${here ? ' aria-current="page"' : ''}${s.cls === 'locked' ? ' aria-disabled="true"' : ''}><span class="num" aria-hidden="true">${num}</span><span class="lbl"><b>Stage ${i + 1}</b><span>${esc(s.sub)}</span></span>${S.collapsed ? `<span class="sr">Stage ${i + 1}, ${esc(s.sub)}</span>` : ''}</button></li>`;
+      const tipAttr = S.collapsed ? ` title="Recording ${i + 1}: ${esc(s.sub)}"` : '';
+      return `<li><button type="button" class="nav-item ${s.cls}" data-i="${i}"${tipAttr}${here ? ' aria-current="page"' : ''}${s.cls === 'locked' ? ' aria-disabled="true"' : ''}><span class="num" aria-hidden="true">${num}</span><span class="lbl"><b>Recording ${i + 1}</b><span>${esc(s.sub)}</span></span>${S.collapsed ? `<span class="sr">Recording ${i + 1}, ${esc(s.sub)}</span>` : ''}</button></li>`;
     }).join('');
     $('open-tour').hidden = allDone();
     const code = $('nav-code');
@@ -696,10 +699,10 @@ html:has(#tour[open]) { overflow: hidden; }
     code.dataset.state = state;
     code.className = 'nav-code' + (allDone() ? ' ready' : '');
     if (allDone()) {
-      code.innerHTML = `<span>All 4 stages are done. Your completion code:</span><span class="code" id="nav-code-text">${COMPLETION_CODE}</span><button class="btn small" type="button" id="nav-copy">Copy code</button><span>Paste it into CloudResearch Connect to finish.</span><span class="copy-help" id="nav-copy-help" hidden></span>`;
+      code.innerHTML = `<span>All 4 recordings are done. Your completion code:</span><span class="code" id="nav-code-text">${COMPLETION_CODE}</span><button class="btn small" type="button" id="nav-copy">Copy code</button><span>Paste it into CloudResearch Connect to finish.</span><span class="copy-help" id="nav-copy-help" hidden></span>`;
       $('nav-copy').addEventListener('click', (ev) => copyCode(ev.currentTarget, $('nav-code-text'), $('nav-copy-help')));
     } else {
-      code.textContent = 'Your completion code appears here after stage 4.';
+      code.textContent = 'Your completion code appears here after recording 4.';
     }
   }
   $('nav-list').addEventListener('click', (e) => { const b = e.target.closest('.nav-item'); if (b) openStage(+b.dataset.i); });
@@ -737,7 +740,7 @@ html:has(#tour[open]) { overflow: hidden; }
     }
   }
   function openStage(i) {
-    if (!unlocked(i)) { announce('Stage ' + (i + 1) + ' opens after you submit stage ' + i + '.'); return; }
+    if (!unlocked(i)) { announce(`Recording ${i + 1} opens after you submit your answers for recording ${i}.`); return; }
     if (i !== S.cur) { pause(); cancelPending(); S.cur = i; save(); renderStage(); }
     if (S.st[i].submitted) { reviewMode = 'submitted'; showView('review', true); return; }
     showView('stage', true);
@@ -746,7 +749,7 @@ html:has(#tour[open]) { overflow: hidden; }
   /* ---------- Stage ---------- */
   function renderStage() {
     const g = G(), st = T(), i = S.cur;
-    $('enc-h').innerHTML = `Stage ${i + 1} <span class="of">of 4</span>`;
+    $('enc-h').innerHTML = `Recording ${i + 1} <span class="of">of 4</span>`;
     const mins = Math.max(1, Math.round(g.duration / 60));
     $('how').textContent = g.convs.length > 1
       ? `Press Play to watch ${g.convs.length === 2 ? 'two' : g.convs.length} short conversations (${mins} minutes in all), then answer the questions.`
@@ -755,6 +758,7 @@ html:has(#tour[open]) { overflow: hidden; }
     $('play').classList.toggle('primary', !st.played);
     setPlayUI();
     track.setAttribute('aria-valuemax', String(g.duration));
+    $('marks').innerHTML = g.turns.map((tu) => (tu.s === 'P' ? `<span class="mark" style="left:${pct(tu.t)}"></span>` : '')).join('');
     $('q-total').textContent = String(NQ());
     pending = null; tip('');
     renderTranscript(); renderItems();
@@ -773,13 +777,25 @@ html:has(#tour[open]) { overflow: hidden; }
     e.preventDefault();
     track.focus({ preventScroll: true });
     const at = (x) => { const r = track.getBoundingClientRect(); seek(Math.min(1, Math.max(0, (x - r.left) / r.width)) * G().duration); };
-    at(e.clientX);
+    // A press on or right next to a diamond goes to the start of that participant line; dragging stays exact.
+    const snap = nearMark(e.clientX);
+    if (snap != null) seek(snap); else at(e.clientX);
     try { track.setPointerCapture(e.pointerId); } catch (err) { /* not supported */ }
     const id = e.pointerId;
     const move = (ev) => { if (ev.pointerId === id) at(ev.clientX); };
     const stop = () => { track.removeEventListener('pointermove', move); track.removeEventListener('pointerup', stop); track.removeEventListener('pointercancel', stop); track.removeEventListener('lostpointercapture', stop); };
     track.addEventListener('pointermove', move); track.addEventListener('pointerup', stop); track.addEventListener('pointercancel', stop); track.addEventListener('lostpointercapture', stop);
   });
+  function nearMark(x) {
+    const g = G(), r = track.getBoundingClientRect();
+    let best = null, bestD = 9;
+    g.turns.forEach((tu) => {
+      if (tu.s !== 'P') return;
+      const d = Math.abs(r.left + r.width * (tu.t / g.duration) - x);
+      if (d < bestD) { bestD = d; best = tu.t; }
+    });
+    return best;
+  }
   track.addEventListener('keydown', (e) => {
     if (e.key === ' ') { e.preventDefault(); e.stopPropagation(); if (!e.repeat) toggle(); return; }
     const step = { ArrowRight: 5, ArrowUp: 5, ArrowLeft: -5, ArrowDown: -5, PageUp: 30, PageDown: -30 }[e.key];
@@ -803,7 +819,7 @@ html:has(#tour[open]) { overflow: hidden; }
     b.dataset.pending = String(!!pending);
     b.innerHTML = pending
       ? ICON.stop + `<span>End clip</span><span class="sr"> that started at ${fmt(pending.a)}</span>`
-      : ICON.clip + `<span>Mark a clip</span><span class="sr"> for question ${st.active + 1}</span>`;
+      : ICON.clip + `<span>Add a video clip</span><span class="sr"> to question ${st.active + 1}</span>`;
     $('clip-cancel').hidden = !pending;
   }
   function cancelPending(msg) {
@@ -819,11 +835,11 @@ html:has(#tour[open]) { overflow: hidden; }
     const { pos, a } = pending, b = st.t;
     pending = null; pause(); updateClipUI();
     if (Math.abs(b - a) < 1) {
-      const msg = 'That clip is under a second long. Press Mark a clip, let it play a few seconds, then press End clip.';
+      const msg = 'That clip is under a second long. Press Add a video clip, let it play a few seconds, then press End clip.';
       tip(msg, true); announce(msg); renderBands(); return;
     }
     if (!clipLines(g, { a: Math.min(a, b), b: Math.max(a, b) }).length) {
-      const msg = "That clip doesn't include the participant speaking. Press Mark a clip where the participant is talking.";
+      const msg = "That clip doesn't include the participant speaking. Press Add a video clip where the participant is talking.";
       tip(msg, true); announce(msg); renderBands(); return;
     }
     tip('');
@@ -834,7 +850,7 @@ html:has(#tour[open]) { overflow: hidden; }
     if (st.submitted) return;
     if (!pending) {
       if (st.t >= g.duration - 1) {
-        const msg = 'First go to where the moment starts: click the bar or a time in the transcript. Then press Mark a clip.';
+        const msg = 'First go to where the moment starts: click the bar or a time in the transcript. Then press Add a video clip.';
         tip(msg, true); announce(msg); return;
       }
       pending = { pos: st.active, a: st.t };
@@ -891,7 +907,7 @@ html:has(#tour[open]) { overflow: hidden; }
     const g = G(), rows = [], parts = g.convs.length > 1;
     g.turns.forEach((tu, i) => {
       if (parts && (i === 0 || g.turns[i - 1].c !== tu.c)) rows.push(`<li class="part">Conversation ${tu.c + 1}</li>`);
-      const txt = tu.x ? esc(tu.x) : tu.s === 'P' ? 'No transcript for this line. To use it as an example, mark a clip.' : 'No transcript for this line.';
+      const txt = tu.x ? esc(tu.x) : tu.s === 'P' ? 'No transcript for this line. To use it as an example, add a video clip.' : 'No transcript for this line.';
       const note = tu.note && tu.x ? `<span class="note">${esc(tu.note)}</span>` : '';
       const add = selectable(g, i) ? `<button type="button" class="add-btn" data-i="${i}"></button>` : '';
       rows.push(`<li class="turn ${tu.s === 'P' ? 'p' : 'c'}" data-i="${i}"><button type="button" class="time-btn" data-i="${i}">${fmt(tu.t)}<span class="sr">, play from here</span></button><div class="line"><span class="who">${esc(whoOf(g, tu))}</span><span class="txt${tu.x ? '' : ' missing'}">${txt}</span>${note}<span class="also"></span></div>${add}</li>`);
@@ -1050,7 +1066,7 @@ html:has(#tour[open]) { overflow: hidden; }
       html += `<span class="lbl">Your examples</span><ol class="quotes">${list.map((e, k) => `<li><button type="button" class="go" data-k="${k}" data-key="go-${evKey(e)}">${evLabel(g, e)}<span class="sr">, play this example</span></button><span class="q">${esc(evText(g, e))}</span>${st.submitted ? '<span></span>' : `<button type="button" class="x" data-k="${k}" data-key="x-${evKey(e)}" aria-label="Remove ${evSpoken(g, e)} from question ${pos + 1}">${ICON.x}</button>`}</li>`).join('')}</ol>`;
     }
     if (v === '1' && !list.length) html += stash[S.cur + ':' + pos] ? '<p class="hint quiet">No example needed for 1. Your examples come back if you pick 2 to 5 again.</p>' : '<p class="hint quiet">No example needed for 1.</p>';
-    else if (v && list.length < needed(v)) html += '<p class="hint">Add an example: press Add next to a participant line in the transcript. Or go to where the moment starts and press Mark a clip under the video.</p>';
+    else if (v && list.length < needed(v)) html += `<p class="hint">Add an example: press Add next to a participant line in the transcript. If it's more about how they said it, like their tone, go to where the moment starts and press Add a video clip under the video.</p>`;
     if (questionDone(pos) && !st.submitted) {
       const nxt = nextOpenQuestion(pos);
       html += nxt >= 0
@@ -1158,27 +1174,27 @@ html:has(#tour[open]) { overflow: hidden; }
     $('rv-submit').hidden = mode !== 'review';
     $('rv-done').innerHTML = '';
     if (mode === 'review') {
-      $('rv-h').innerHTML = `Review stage ${i + 1} <span class="of">of 4</span>`;
-      $('rv-intro').textContent = `Check your answers, then press Submit stage ${i + 1} at the bottom. You can't change this stage after you submit it.`;
+      $('rv-h').innerHTML = `Recording ${i + 1} <span class="of">of 4</span>: check your answers`;
+      $('rv-intro').textContent = "When they look right, press Submit answers at the bottom. You can't change them after you submit.";
       $('better').value = st.better; $('notable').value = st.notable;
-      $('rv-back').innerHTML = ICON.back + `<span>Back to stage ${i + 1}</span>`;
+      $('rv-back').innerHTML = ICON.back + `<span>Back to recording ${i + 1}</span>`;
       $('rv-back').dataset.go = 'stage';
-      $('rv-submit').textContent = 'Submit stage ' + (i + 1);
+      $('rv-submit').textContent = 'Submit answers';
     } else if (mode === 'submitted') {
-      $('rv-h').innerHTML = `Stage ${i + 1} <span class="of">of 4</span>: your answers`;
-      $('rv-intro').textContent = 'You submitted this stage.';
+      $('rv-h').innerHTML = `Recording ${i + 1} <span class="of">of 4</span>: your answers`;
+      $('rv-intro').textContent = 'You submitted these answers.';
       const said = [['What could the participant have done better?', st.better], ['Anything else you noticed?', st.notable]].filter((x) => x[1] && x[1].trim());
       if (said.length) { $('rv-read').innerHTML = `<h2>Your comments</h2><dl>${said.map(([q, a]) => `<dt>${q}</dt><dd>${esc(a)}</dd>`).join('')}</dl>`; $('rv-read').hidden = false; }
       const k = nextOpenStage();
-      if (k >= 0) { $('rv-back').innerHTML = ICON.back + `<span>Back to stage ${k + 1}</span>`; $('rv-back').dataset.go = String(k); }
+      if (k >= 0) { $('rv-back').innerHTML = ICON.back + `<span>Back to recording ${k + 1}</span>`; $('rv-back').dataset.go = String(k); }
       else { $('rv-back').textContent = 'Show my completion code'; $('rv-back').dataset.go = 'code'; }
     } else if (mode === 'next') {
       const j = nextOpenStage();
-      $('rv-h').textContent = `Stage ${i + 1} submitted`;
-      $('rv-done').innerHTML = `<div class="card done-card"><p>Stage ${j + 1} is open.</p><button class="btn primary" type="button" id="rv-next" data-i="${j}">Start stage ${j + 1}</button></div>`;
+      $('rv-h').textContent = `Recording ${i + 1} is done`;
+      $('rv-done').innerHTML = `<div class="card done-card"><p>Recording ${j + 1} is open.</p><button class="btn primary" type="button" id="rv-next" data-i="${j}">Go to recording ${j + 1}</button></div>`;
       $('rv-next').addEventListener('click', (ev) => openStage(+ev.currentTarget.dataset.i));
     } else {
-      $('rv-h').textContent = 'All 4 stages are done';
+      $('rv-h').textContent = 'All 4 recordings are done';
       $('rv-done').innerHTML = `<div class="card done-card"><p>Your completion code:</p><div class="code-row"><span class="code" id="rvdone-code">${COMPLETION_CODE}</span><button class="btn" type="button" id="rvdone-copy">Copy code</button></div><p>Paste it into CloudResearch Connect to finish.</p><p class="copy-help" id="rvdone-help" hidden></p></div>`;
       $('rvdone-copy').addEventListener('click', (ev) => copyCode(ev.currentTarget, $('rvdone-code'), $('rvdone-help')));
     }
@@ -1214,10 +1230,10 @@ html:has(#tour[open]) { overflow: hidden; }
     renderNav(); renderReview();
     if (allDone()) {
       $('rvdone-copy').focus();
-      announce('All 4 stages are done. Your completion code is ' + COMPLETION_CODE.split('').join(' ') + '.');
+      announce('All 4 recordings are done. Your completion code is ' + COMPLETION_CODE.split('').join(' ') + '.');
     } else {
       $('rv-next').focus();
-      announce(`Stage ${i + 1} submitted. Stage ${nextOpenStage() + 1} is open.`);
+      announce(`Your answers for recording ${i + 1} are submitted. Recording ${nextOpenStage() + 1} is open.`);
     }
   });
 
@@ -1256,11 +1272,11 @@ html:has(#tour[open]) { overflow: hidden; }
 
   /* ---------- First-run tour: five short steps that point at the real screen ---------- */
   const TOUR = [
-    { target: '.player', title: 'Watch the conversation', body: 'Press Play or click the video to start. The bar under the video shows where you are, and you can click it to jump to any moment.' },
+    { target: '.player', title: 'Watch the conversation', body: "You'll rate four recordings, one at a time. Press Play or click the video to start. The diamonds on the bar show each time the participant speaks. Click one, or anywhere on the bar, to jump there." },
     { target: '.transcript', title: 'Follow along in the transcript', body: "Every line appears here with the time it was said. Click a time to play from that line. The participant is the person you're rating, and the other speakers are characters." },
     { target: '#items', title: 'Answer one question at a time', body: 'Pick how often the participant did each thing, from 1 (Never) to 5 (Consistently). When a question is done, press Next question.' },
-    { target: '.watch', title: 'Add an example for scores of 2 to 5', body: 'Once you pick 2 to 5, an Add button appears beside each participant line, and Mark a clip appears under the video. Press Add to use a line. To use part of the video, go to where it starts, press Mark a clip, then press End clip.', demo: true },
-    { target: '.submit-row', title: 'Review, then submit', body: 'When every question has a score and the examples it needs, press Review answers to check your work before you submit. Stages open one at a time, and your completion code appears after stage 4.' },
+    { target: '.watch', title: 'Add an example for scores of 2 to 5', body: "Once you pick 2 to 5, show where you saw it. Press Add next to something the participant said. If it's more about how they said it, like their tone or a pause, go to where the moment starts, press Add a video clip, then End clip.", demo: true },
+    { target: '.submit-row', title: 'Review, then submit', body: 'When every question has a score and the examples it needs, press Review answers to check your work before you submit. Recordings open one at a time, and your completion code appears after recording 4.' },
   ];
   const tour = $('tour');
   let tourStep = 0;
@@ -1296,7 +1312,7 @@ html:has(#tour[open]) { overflow: hidden; }
     $('tour-count').textContent = `${tourStep + 1} of ${TOUR.length}`;
     const demo = $('tour-demo');
     demo.hidden = !step.demo;
-    demo.innerHTML = step.demo ? `<span class="add-btn">${ICON.plus}<span>Add</span></span><span class="btn markb">${ICON.clip}<span>Mark a clip</span></span>` : '';
+    demo.innerHTML = step.demo ? `<span class="add-btn">${ICON.plus}<span>Add</span></span><span class="btn markb">${ICON.clip}<span>Add a video clip</span></span>` : '';
     $('tour-back').hidden = tourStep === 0;
     $('tour-next').textContent = last ? 'Start rating' : 'Next';
     showTarget();
