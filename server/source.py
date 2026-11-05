@@ -14,8 +14,9 @@ scenario. If step 1 starts exporting runs to runs/<run_id>.json
 (docs/step1-runs-export.md), run() below reads them; until then it answers
 None and nothing here pretends to know about withdrawals.
 
-READ-ONLY BY CONSTRUCTION. The S3 client is wrapped in _ReadOnlyS3, which has
-exactly two methods, get_object and list_objects_v2; there is no handle in this
+READ-ONLY BY CONSTRUCTION. The S3 client is wrapped in _ReadOnlyS3, which calls
+exactly two S3 operations, GetObject (whole, or streamed with a Range for
+media) and ListObjectsV2; there is no handle in this
 module through which a write could be made, and tests/test_source.py fails on
 any write-shaped call appearing in this file. The IAM policy (ecs.tf) grants
 the same two, and denies writes outright.
@@ -48,17 +49,32 @@ class _ReadOnlyS3:
         self._client = client
         self.bucket = bucket
 
-    def get_object(self, key: str) -> Optional[bytes]:
+    def get_object(self, key: str, *, stream: bool = False,
+                   range_header: Optional[str] = None) -> Optional[Any]:
+        """The object's bytes, or None when it is missing.
+
+        With stream=True, the raw GetObject response instead, so a media file
+        (a webcam recording is tens of MB) can be sent in pieces and a
+        browser's Range request honoured; then {"status": 416} means the range
+        was not satisfiable. Still the one S3 operation."""
         from botocore.exceptions import ClientError
+        kw: Dict[str, Any] = {"Bucket": self.bucket, "Key": key}
+        if range_header:
+            kw["Range"] = range_header
         try:
-            return self._client.get_object(Bucket=self.bucket, Key=key)["Body"].read()
+            resp = self._client.get_object(**kw)
         except ClientError as exc:
-            if exc.response.get("Error", {}).get("Code") in ("NoSuchKey", "404"):
+            code = exc.response.get("Error", {}).get("Code")
+            if code in ("NoSuchKey", "404"):
                 return None
+            if stream and code == "InvalidRange":
+                return {"status": 416}
             raise
+        return resp if stream else resp["Body"].read()
 
     def list_objects_v2(self, **kwargs) -> Dict[str, Any]:
         return self._client.list_objects_v2(Bucket=self.bucket, **kwargs)
+
 
 
 def _s3_client():
@@ -176,6 +192,67 @@ class Step1Source:
             "offline": hq if has_hq else None,
             "turns": turns,
         }
+
+    # --- media -------------------------------------------------------------------------
+    #
+    # What a rater watches or listens to. The webcam recording when the browser
+    # uploaded one (webcam.webm), else the participant's own audio channel
+    # (record.json audio.participant, user_audio.wav in every archive so far).
+    # The characters' audio is per agent in separate files and is not mixed
+    # here; the transcript carries their lines.
+
+    VIDEO_NAME = "webcam.webm"
+
+    def media_files(self, session_id: str) -> Dict[str, int]:
+        """file name -> size, for one encounter's folder."""
+        if not valid_session_id(session_id):
+            return {}
+        out: Dict[str, int] = {}
+        if self._s3:
+            prefix = f"{ENCOUNTERS_PREFIX}{session_id}/"
+            token = None
+            while True:
+                kw: Dict[str, Any] = {"Prefix": prefix}
+                if token:
+                    kw["ContinuationToken"] = token
+                page = self._s3.list_objects_v2(**kw)
+                for o in page.get("Contents") or []:
+                    out[o["Key"][len(prefix):]] = int(o.get("Size") or 0)
+                if not page.get("IsTruncated"):
+                    break
+                token = page.get("NextContinuationToken")
+        elif self.local_dir:
+            d = self.local_dir / "sessions" / session_id
+            if d.is_dir():
+                out = {p.name: p.stat().st_size for p in d.iterdir() if p.is_file()}
+        return out
+
+    def media_choice(self, session_id: str) -> Optional[Dict[str, Any]]:
+        """{"name", "kind": video|audio, "content_type", "size"} or None."""
+        files = self.media_files(session_id)
+        if self.VIDEO_NAME in files:
+            return {"name": self.VIDEO_NAME, "kind": "video", "content_type": "video/webm",
+                    "size": files[self.VIDEO_NAME]}
+        rec = self.record(session_id) or {}
+        wanted = ((rec.get("audio") or {}).get("participant")) or "user_audio.wav"
+        if wanted in files and wanted.endswith(".wav"):
+            return {"name": wanted, "kind": "audio", "content_type": "audio/wav",
+                    "size": files[wanted]}
+        return None
+
+    def media_local_path(self, session_id: str, name: str) -> Optional[Path]:
+        """The file on disk (local source only), for a range-capable file response."""
+        if not self.local_dir or not valid_session_id(session_id) or "/" in name or name.startswith("."):
+            return None
+        p = (self.local_dir / "sessions" / session_id / name).resolve()
+        return p if self.local_dir in p.parents and p.is_file() else None
+
+    def media_stream(self, session_id: str, name: str, range_header: Optional[str] = None):
+        """S3 only: the raw get_object response for streaming, or None / {"status": 416}."""
+        if not self._s3 or not valid_session_id(session_id) or "/" in name:
+            return None
+        return self._s3.get_object(f"{ENCOUNTERS_PREFIX}{session_id}/{name}", stream=True,
+                                   range_header=range_header)
 
     # --- participant -> encounters --------------------------------------------------
 
