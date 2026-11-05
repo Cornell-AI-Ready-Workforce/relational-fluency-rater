@@ -43,7 +43,7 @@ resource "aws_kms_alias" "rater" {
 # so the data the app can write and the data retention reaches cannot drift
 # apart. tests/test_terraform.py checks it equals WRITE_PREFIXES.
 locals {
-  rater_write_prefixes = ["entries/"]
+  rater_write_prefixes = ["entries/", "raters/", "assignments/", "drafts/", "ratings/"]
 }
 
 resource "aws_s3_bucket" "rater_data" {

@@ -38,7 +38,12 @@ from .conventions import (
 )
 
 STEP1_BUCKET = "relational-fluency-study-data"
-WRITE_PREFIXES = ("entries/",)
+# entries/      the Qualtrics entry records (the participant path)
+# raters/       who may rate, and the digest of their link token
+# assignments/  rating code -> step 1 encounter, per rater
+# drafts/       a rater's autosaved answers, overwritten as they go
+# ratings/      submissions, written once                   (server/rating.py)
+WRITE_PREFIXES = ("entries/", "raters/", "assignments/", "drafts/", "ratings/")
 SCHEMA_VERSION = 1
 
 
