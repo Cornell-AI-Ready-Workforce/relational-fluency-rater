@@ -76,7 +76,7 @@ def test_sign_in_sets_cookie_and_bad_token_does_not(client):
     assert r.status_code == 401 and rating.COOKIE not in r.cookies
     sign_in(client, out["token"])
     page = client.get("/rate")
-    assert page.status_code == 200 and "Your sign-in worked" in page.text
+    assert page.status_code == 200 and "Your queue" in page.text
     assert client.get("/api/queue").json() == {"rater_id": "R-07", "queue": [], "done": 0, "total": 0}
 
 
