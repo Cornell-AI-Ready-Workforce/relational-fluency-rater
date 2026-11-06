@@ -1,0 +1,687 @@
+[
+ {
+  "scenario": "S1A",
+  "duration": 314,
+  "record": {
+   "cast": [
+    {
+     "id": "riley",
+     "name": "Riley"
+    },
+    {
+     "id": "sam",
+     "name": "Sam"
+    }
+   ],
+   "opening": {
+    "conversations": [
+     {
+      "t": 0.0
+     },
+     {
+      "t": 117.0
+     }
+    ]
+   },
+   "transcript": [
+    {
+     "t": 3.0,
+     "role": "participant",
+     "text": "Hey, Riley. What's up?"
+    },
+    {
+     "t": 8.0,
+     "role": "agent",
+     "text": "Hey, there's something I need to talk to you about. This morning I saw Sam present your latest analysis to leadership, and he didn't mention once that you ran those numbers. We can't let this happen again.",
+     "agent_id": "riley"
+    },
+    {
+     "t": 22.0,
+     "role": "participant",
+     "text": "Huh. Again? I already asked him about that after the last time."
+    },
+    {
+     "t": 29.0,
+     "role": "agent",
+     "text": "I know. Honestly, I think you should email leadership with your original files attached. They've got your name right on them. I'd help you draft it. What do you think?",
+     "agent_id": "riley"
+    },
+    {
+     "t": 42.0,
+     "role": "participant",
+     "text": "I don't want to make it a big thing. Maybe Sam just forgot to mention me."
+    },
+    {
+     "t": 50.0,
+     "role": "agent",
+     "text": "Or you could just let it go, I suppose. Decide it's not worth the drama. Honestly, I bet that's what Sam's counting on.",
+     "agent_id": "riley"
+    },
+    {
+     "t": 59.0,
+     "role": "participant",
+     "text": "No. I'd rather talk to Sam directly before I decide anything."
+    },
+    {
+     "t": 67.0,
+     "role": "agent",
+     "text": "Good. I've got your back, and I want to hear how it goes. I have to get back to my desk, but he's out by the elevators right now.",
+     "agent_id": "riley"
+    },
+    {
+     "t": 78.0,
+     "role": "participant",
+     "text": "Okay. Thanks for telling",
+     "interrupted": true
+    },
+    {
+     "t": 121.0,
+     "role": "participant",
+     "text": "Hey, Sam."
+    },
+    {
+     "t": 127.0,
+     "role": "agent",
+     "text": "Oh, hey. Heading down? Long morning already. Got any new results for me today?",
+     "agent_id": "sam"
+    },
+    {
+     "t": 139.0,
+     "role": "participant",
+     "text": "Actually, that's kind of what I wanted to talk about. You presented my analysis again this morning and didn't mention me. It's my analysis, and the authorship needs to be right. How do we fix that going forward?"
+    },
+    {
+     "t": 156.0,
+     "role": "agent",
+     "text": "Wow, okay. I did most of the legwork shaping that into a narrative leadership could follow. I don't think it's that simple.",
+     "agent_id": "sam"
+    },
+    {
+     "t": 171.0,
+     "role": "participant",
+     "text": "Come on. The analysis came from my file. I sent it to you."
+    },
+    {
+     "t": 181.0,
+     "role": "agent",
+     "text": "Look, in those rooms people say \"I.\" Everyone's work gets folded together, and nobody's keeping score.",
+     "agent_id": "sam"
+    },
+    {
+     "t": 195.0,
+     "role": "participant",
+     "text": "Maybe. I just don't want this getting weird between us."
+    },
+    {
+     "t": 205.0,
+     "role": "agent",
+     "text": "Totally. Anyway, we should line up what leadership wants next. Got a minute for that?",
+     "agent_id": "sam"
+    },
+    {
+     "t": 218.0,
+     "role": "participant",
+     "text": "We can do that in a sec. I'm not keeping score, and I know the framing was yours. I just want the credit for the analysis to be accurate going forward."
+    },
+    {
+     "t": 234.0,
+     "role": "agent",
+     "text": "Fine. Maybe I could have named your part in there, or said \"we.\" Call it an oversight. The framing is still what made it land in the room, though.",
+     "agent_id": "sam"
+    },
+    {
+     "t": 250.0,
+     "role": "participant",
+     "text": "Could you mention it at Thursday's review? Just one line saying the model was mine."
+    },
+    {
+     "t": 263.0,
+     "role": "agent",
+     "text": "Thursday. Yeah, I can do that. Send me a sentence and I'll use it.",
+     "agent_id": "sam"
+    },
+    {
+     "t": 276.0,
+     "role": "participant",
+     "text": "",
+     "transcript_missing": true
+    },
+    {
+     "t": 285.0,
+     "role": "agent",
+     "text": "That's my lift. Anything else can wait until another time.",
+     "agent_id": "sam"
+    },
+    {
+     "t": 296.0,
+     "role": "participant",
+     "text": "Okay. Thanks for hearing me out."
+    },
+    {
+     "t": 306.0,
+     "role": "agent",
+     "text": "Sure. See you Thursday.",
+     "agent_id": "sam"
+    }
+   ]
+  }
+ },
+ {
+  "scenario": "S2A",
+  "duration": 382,
+  "record": {
+   "cast": [
+    {
+     "id": "morgan",
+     "name": "Morgan"
+    }
+   ],
+   "opening": {
+    "conversations": [
+     {
+      "t": 0.0
+     },
+     {
+      "t": 80.0
+     }
+    ]
+   },
+   "transcript": [
+    {
+     "t": 4.0,
+     "role": "participant",
+     "text": "Hi Morgan. I wanted to talk about my pay. Two cycles ago you said if I took on the extra reporting you'd sort it out, and since then I've also picked up the launch and I've been covering for two people who left."
+    },
+    {
+     "t": 23.0,
+     "role": "agent",
+     "text": "I did say that. I want to keep you, and you know what this cycle looks like.",
+     "agent_id": "morgan"
+    },
+    {
+     "t": 32.0,
+     "role": "participant",
+     "text": "I do. And I'm guessing you're about to tell me the budget's frozen, so I'm not asking you to sign anything today. I want to know what an exception would actually take."
+    },
+    {
+     "t": 81.0,
+     "role": "agent",
+     "text": "It takes a written case to the director, and those have gone through before. But first... how are you actually holding up with all of it?",
+     "agent_id": "morgan"
+    },
+    {
+     "t": 90.0,
+     "role": "participant",
+     "text": "Tired, honestly. I've been doing evenings most weeks since the launch started. So the specific ask is my base moved to where it should have been two cycles ago. Something like twelve percent."
+    },
+    {
+     "t": 99.0,
+     "role": "agent",
+     "text": "Twelve percent... there's nothing in the pot this cycle, for anyone, and nothing I can sign on my own. So what were you hoping I could do with it?",
+     "agent_id": "morgan"
+    },
+    {
+     "t": 114.0,
+     "role": "participant",
+     "text": "Fix it. I've been doing three people's work for over a year and I'm still on the same number. That's just not right."
+    },
+    {
+     "t": 126.0,
+     "role": "agent",
+     "text": "Nobody's arguing about the work, and it's been a long year for you. It still doesn't get past the freeze on its own, though... what else have you got?",
+     "agent_id": "morgan"
+    },
+    {
+     "t": 141.0,
+     "role": "participant",
+     "text": "Okay. I have a written offer from another company, and it's noticeably more. I'm telling you because I'd rather stay, not to hold it over you."
+    },
+    {
+     "t": 156.0,
+     "role": "agent",
+     "text": "Oh, I... didn't know that. How long have they given you?",
+     "agent_id": "morgan"
+    },
+    {
+     "t": 163.0,
+     "role": "participant",
+     "text": "Two weeks. And if I go, you're backfilling the launch and all the reporting in the middle of a freeze. That's going to cost a lot more than a raise."
+    },
+    {
+     "t": 178.0,
+     "role": "agent",
+     "text": "Losing you mid-launch would hurt, I won't pretend otherwise. But you're not the only one stretched right now, and I know it, so how does that look from your side?",
+     "agent_id": "morgan"
+    },
+    {
+     "t": 193.0,
+     "role": "participant",
+     "text": "Honestly, I can only speak for me. I'm the one with an offer sitting in my inbox."
+    },
+    {
+     "t": 202.0,
+     "role": "agent",
+     "text": "If I do this for you, I've opened a door I can't shut again. Unless there's something I'm not seeing?",
+     "agent_id": "morgan"
+    },
+    {
+     "t": 214.0,
+     "role": "participant",
+     "text": "There is, actually. Alex got an off-cycle raise last quarter. So that door's been opened once already, and as far as I can tell nothing fell apart."
+    },
+    {
+     "t": 231.0,
+     "role": "agent",
+     "text": "That's... yes, Alex's went through off-cycle. It went through on a written case, though, and a precedent on its own won't get yours past the director.",
+     "agent_id": "morgan"
+    },
+    {
+     "t": 245.0,
+     "role": "participant",
+     "text": "",
+     "transcript_missing": true
+    },
+    {
+     "t": 253.0,
+     "role": "agent",
+     "text": "Besides the director, finance has to be comfortable that the number fits the band, and the director wants it in writing with numbers behind it. What could you do to help line that up?",
+     "agent_id": "morgan"
+    },
+    {
+     "t": 270.0,
+     "role": "participant",
+     "text": "I could ask the launch lead to write a short note on what I've been covering. And I'd want to sit down with whoever in finance owns our band before it goes up, so they're not seeing it cold, and if",
+     "interrupted": true
+    },
+    {
+     "t": 288.0,
+     "role": "agent",
+     "text": "Start with the writing, then. What's actually grown, and what number are you asking for?",
+     "agent_id": "morgan"
+    },
+    {
+     "t": 296.0,
+     "role": "participant",
+     "text": "The reporting is about eight hours a week that didn't exist two years ago, plus the launch, plus approvals for the two people who left. I'd ask for eight percent off-cycle from the start of next quarter, and I can have the write-up to you by Friday."
+    },
+    {
+     "t": 315.0,
+     "role": "agent",
+     "text": "Eight from next quarter, in writing by Friday... that I could take upward. But what do I say to everyone else who's stretched when they come asking the week it lands?",
+     "agent_id": "morgan"
+    },
+    {
+     "t": 331.0,
+     "role": "participant",
+     "text": "The same thing you just said to me. It takes a written case with real numbers, and the bar's the same for everyone. Then you're not deciding on feelings, and you've got cover with the director."
+    },
+    {
+     "t": 349.0,
+     "role": "agent",
+     "text": "So, your write-up on Friday, and I take it to the director and finance the week after. What would you want to happen next?",
+     "agent_id": "morgan"
+    },
+    {
+     "t": 362.0,
+     "role": "participant",
+     "text": "If it goes through, great. If it doesn't, I need to know before the two weeks are up, because then I've got a decision to make. Can we put fifteen minutes in for next Thursday?"
+    }
+   ]
+  }
+ },
+ {
+  "scenario": "S3A",
+  "duration": 358,
+  "record": {
+   "cast": [
+    {
+     "id": "alex",
+     "name": "Alex"
+    },
+    {
+     "id": "jordan",
+     "name": "Jordan"
+    },
+    {
+     "id": "casey",
+     "name": "Casey"
+    }
+   ],
+   "opening": {
+    "conversations": [
+     {
+      "t": 0.0
+     }
+    ]
+   },
+   "transcript": [
+    {
+     "t": 4.0,
+     "role": "participant",
+     "text": "Hi, everyone. Thanks for making time. You all know the news, so I'm not going to dress it up. Before I say anything about the quarter, I'd like to hear from each of you. What's actually going on right now?"
+    },
+    {
+     "t": 20.0,
+     "role": "agent",
+     "text": "Hey. Two more people on this team are going to leave, and nothing you can offer in this meeting is going to stop that. Two walked over pay inside six weeks, and nobody above us has said a word since.",
+     "agent_id": "alex"
+    },
+    {
+     "t": 37.0,
+     "role": "participant",
+     "text": "I hear you, Alex, I really do. But I think if we pull together on this, we can come out of the quarter stronger than we",
+     "interrupted": true
+    },
+    {
+     "t": 48.0,
+     "role": "agent",
+     "text": "Priya's queue had forty-one open reviews in it this morning. Three of us, same deadlines we had when there were five.",
+     "agent_id": "alex"
+    },
+    {
+     "t": 61.0,
+     "role": "participant",
+     "text": "Okay. That sounded like a pep talk, fair enough. I can't change pay, and I'm not going to pretend I can. What I can do is take that number, forty-one reviews and three people, to my director in writing by Thursday and ask what gets cut."
+    },
+    {
+     "t": 81.0,
+     "role": "agent",
+     "text": "Thursday. And if what comes back is that nothing gets cut?",
+     "agent_id": "alex"
+    },
+    {
+     "t": 91.0,
+     "role": "participant",
+     "text": "Then I tell you that on Friday, and we decide ourselves what slips. I'd rather drop something on purpose than drop it by accident. Jordan, you've been quiet. Where are you at with all this?"
+    },
+    {
+     "t": 108.0,
+     "role": "agent",
+     "text": "Hi. I stopped doing the second pass on everyone's reviews about three weeks ago, and there's nothing in that to discuss. What do you need me doing?",
+     "agent_id": "jordan"
+    },
+    {
+     "t": 121.0,
+     "role": "participant",
+     "text": "Okay. Thanks for telling me. Could you take the four client reviews out of Priya's queue for now? And Casey, how about you, how's it going?"
+    },
+    {
+     "t": 135.0,
+     "role": "agent",
+     "text": "Hi. Sorry, can I ask something? Priya's whole queue landed on me and there's more of it than I can actually get through. And it all goes out under my name now, so the first time one's wrong, that comes back on me, doesn't it?",
+     "agent_id": "casey"
+    },
+    {
+     "t": 154.0,
+     "role": "participant",
+     "text": "No, it doesn't, and I'm really glad you said it in here. The four client reviews are Jordan's from today. For everything else in your queue, I sign off alongside you as lead, so if one comes back wrong, it comes back to me first."
+    },
+    {
+     "t": 173.0,
+     "role": "agent",
+     "text": "Okay. Okay, that helps. Is that from this week, the signing off?",
+     "agent_id": "casey"
+    },
+    {
+     "t": 182.0,
+     "role": "participant",
+     "text": "From today. Anything you send after this meeting has my name on it too."
+    },
+    {
+     "t": 193.0,
+     "role": "agent",
+     "text": "Nobody's doing the second pass now. The first bad review that goes out, a client finds it before we do.",
+     "agent_id": "jordan"
+    },
+    {
+     "t": 205.0,
+     "role": "participant",
+     "text": "Jordan, that's exactly it. You're the reason this team has never shipped a bad review, and I don't think anyone upstairs knows that. I want your call on which reviews still need a second pass, and your name on that list when I take it up on Thursday."
+    },
+    {
+     "t": 225.0,
+     "role": "agent",
+     "text": "Yeah. Okay. Client work, and anything Casey's doing for the first time. The rest can go out on one pass. That's maybe a third of the queue.",
+     "agent_id": "jordan"
+    },
+    {
+     "t": 240.0,
+     "role": "participant",
+     "text": "",
+     "transcript_missing": true
+    },
+    {
+     "t": 247.0,
+     "role": "agent",
+     "text": "So what's this team for now? Where are we in six months, if anyone's still on it?",
+     "agent_id": "alex"
+    },
+    {
+     "t": 259.0,
+     "role": "participant",
+     "text": "In six months I want us to be the team other groups bring their hardest reviews to, because we got through the worst quarter we've had without shipping a bad one. That record is already ours. I want to keep it, and I want it written down upstairs with your three names on it."
+    },
+    {
+     "t": 278.0,
+     "role": "agent",
+     "text": "I'll wait and see what comes back on Thursday.",
+     "agent_id": "alex"
+    },
+    {
+     "t": 289.0,
+     "role": "participant",
+     "text": "That's fair. Casey, Jordan, I meant that about your names. Nothing goes up on Thursday that you two haven't read first."
+    },
+    {
+     "t": 302.0,
+     "role": "agent",
+     "text": "Okay. Thank you. I'd like to see it before it goes, yeah.",
+     "agent_id": "casey"
+    },
+    {
+     "t": 312.0,
+     "role": "agent",
+     "text": "What would you tell the next person who asks why anyone's still here?",
+     "agent_id": "alex"
+    },
+    {
+     "t": 323.0,
+     "role": "participant",
+     "text": "Honestly? I'd probably say the work's interesting and the people are good. I don't have a better answer than that yet. Let's leave it there. Thursday I take the numbers and Jordan's list up, and we meet Friday at ten to decide what we drop."
+    },
+    {
+     "t": 343.0,
+     "role": "agent",
+     "text": "Friday, then. You still haven't said what happens if two more go.",
+     "agent_id": "alex"
+    },
+    {
+     "t": 352.0,
+     "role": "agent",
+     "text": "Thanks. Thank you, really.",
+     "agent_id": "casey"
+    }
+   ]
+  }
+ },
+ {
+  "scenario": "S4A",
+  "duration": 340,
+  "record": {
+   "cast": [
+    {
+     "id": "dan",
+     "name": "Dan"
+    },
+    {
+     "id": "priya",
+     "name": "Priya"
+    },
+    {
+     "id": "chris",
+     "name": "Chris"
+    }
+   ],
+   "opening": {
+    "conversations": [
+     {
+      "t": 0.0
+     },
+     {
+      "t": 236.0
+     }
+    ]
+   },
+   "transcript": [
+    {
+     "t": 4.0,
+     "role": "participant",
+     "text": "Okay, sorry, we got a bit sidetracked there. Dan, you were saying about the date?"
+    },
+    {
+     "t": 12.0,
+     "role": "agent",
+     "text": "Monday the 9th. Every team, same morning. Stage it and we're dragging this out for a month, and by week three nobody remembers why we started.",
+     "agent_id": "dan"
+    },
+    {
+     "t": 25.0,
+     "role": "agent",
+     "text": "I was, um, sort of close to the tail end of last year's rollout, and I might have this wrong, but—",
+     "agent_id": "priya"
+    },
+    {
+     "t": 31.0,
+     "role": "agent",
+     "text": "Priya, yeah, last year was a different system, it doesn't carry over. So. The 9th. Can I get a yes on the 9th?",
+     "agent_id": "dan"
+    },
+    {
+     "t": 44.0,
+     "role": "participant",
+     "text": "I mean, the 9th is really tight for my team. I'd want Wednesday the 18th. I need that week to get my people ready, and honestly, I'm not launching on a Monday."
+    },
+    {
+     "t": 60.0,
+     "role": "agent",
+     "text": "Or one team goes first. Whichever's readiest. Nobody else moves till they're through it.",
+     "agent_id": "chris"
+    },
+    {
+     "t": 68.0,
+     "role": "agent",
+     "text": "The 18th, noted. And that's what I was saying earlier, my point from the start. One team out front on the 9th, everyone else right behind it that same week.",
+     "agent_id": "dan"
+    },
+    {
+     "t": 80.0,
+     "role": "agent",
+     "text": "Pretty sure that was my— eh. Sure.",
+     "agent_id": "chris"
+    },
+    {
+     "t": 87.0,
+     "role": "participant",
+     "text": "Hang on, Dan, the one-team-first thing was Chris's. Chris, what are you actually hearing from the teams? Who'd be ready to go first?"
+    },
+    {
+     "t": 101.0,
+     "role": "agent",
+     "text": "Sales. Ready the 9th, happy to go first. Operations wants the 30th, after their inventory count.",
+     "agent_id": "chris"
+    },
+    {
+     "t": 115.0,
+     "role": "agent",
+     "text": "Last year I was, um... it's probably all in my notes somewhere. Never mind.",
+     "agent_id": "priya"
+    },
+    {
+     "t": 127.0,
+     "role": "participant",
+     "text": "No, wait. Priya, you've started on that twice now. What happened last year?"
+    },
+    {
+     "t": 134.0,
+     "role": "agent",
+     "text": "It went out to every team at once, and support collapsed inside the first week. And the plan for the 9th is that same plan again, every team on one day.",
+     "agent_id": "priya"
+    },
+    {
+     "t": 152.0,
+     "role": "participant",
+     "text": "Okay. That's kind of a big deal. Priya, do you know where any of the other teams are on dates?"
+    },
+    {
+     "t": 163.0,
+     "role": "agent",
+     "text": "Support wants Monday the 23rd, their tickets peak in the first two weeks of the month. Finance wants the 16th, once their month-end close is done.",
+     "agent_id": "priya"
+    },
+    {
+     "t": 178.0,
+     "role": "participant",
+     "text": "Okay, so what if Sales pilots on the 9th, Finance goes on the 16th, my team on the 18th, and then Support on the",
+     "interrupted": true
+    },
+    {
+     "t": 186.0,
+     "role": "agent",
+     "text": "Chris's pilot, fine, Sales on the 9th. But staging the rest over a month is slower. Everyone else goes that same week.",
+     "agent_id": "dan"
+    },
+    {
+     "t": 197.0,
+     "role": "participant",
+     "text": "Dan, come on. Everyone on one day is dead, Priya just told us why. We're staging it."
+    },
+    {
+     "t": 210.0,
+     "role": "agent",
+     "text": "Fine. Staged, Sales first, the rest on the dates we just heard. Chris, you're good with that? Then that's decided.",
+     "agent_id": "dan"
+    },
+    {
+     "t": 244.0,
+     "role": "agent",
+     "text": "Right, who does what. I'll write it up tonight and take it to leadership myself on Thursday. Chris, calendar holds for each team. Priya, the reminder email to the leads.",
+     "agent_id": "dan"
+    },
+    {
+     "t": 261.0,
+     "role": "participant",
+     "text": "Sure, you take it upstairs, Dan. Priya, would you want to own the risk section, though? It was your point that changed the plan."
+    },
+    {
+     "t": 274.0,
+     "role": "agent",
+     "text": "I'd take it. I'd need an hour with my notes from last year, and some time with the two people in Support who were there.",
+     "agent_id": "priya"
+    },
+    {
+     "t": 289.0,
+     "role": "participant",
+     "text": "",
+     "transcript_missing": true
+    },
+    {
+     "t": 300.0,
+     "role": "agent",
+     "text": "Priya's section, then, and she walks leadership through that part herself. Rest of it's mine. Thursday.",
+     "agent_id": "dan"
+    },
+    {
+     "t": 315.0,
+     "role": "participant",
+     "text": "Chris, Priya, anything I've missed before we wrap?"
+    },
+    {
+     "t": 324.0,
+     "role": "agent",
+     "text": "Holds. Sales the 9th, Finance the 16th, yours the 18th, Support the 23rd, Ops the 30th. That's mine.",
+     "agent_id": "chris"
+    }
+   ]
+  }
+ }
+]
