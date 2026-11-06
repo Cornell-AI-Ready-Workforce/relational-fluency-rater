@@ -12,8 +12,18 @@ curl -s http://127.0.0.1:8766/health
    - `SOURCE_DIR=../relational-fluency/data` reads step 1's *local* sessions (its `data/sessions/<id>/` layout) from a step 1 checkout beside this one. Nothing is written there.
    - `SOURCE_BUCKET=relational-fluency-study-data` reads the real archive with your own AWS credentials. Your identity needs `s3:GetObject`, `s3:ListBucket` and `kms:Decrypt`. Those reads are real access to study data, so only do this if you are on the protocol.
    - With neither set, step 1 has no data and every participant has no encounters.
-2. **Where records go.** With `RATER_BUCKET` unset, records go to `data/rater-records/entries/` in this checkout, which is gitignored. Setting `RATER_BUCKET` writes to the production bucket; there is no staging bucket. The app refuses to write to step 1's bucket whatever you set.
+2. **Where records go.** With `RATER_BUCKET` unset, records go to `data/rater-records/` in this checkout, which is gitignored. Setting `RATER_BUCKET` writes to the production bucket; there is no staging bucket. The app refuses to write to step 1's bucket whatever you set.
 3. **Port 8766.** Step 1 uses 8765, so both can run at once.
+
+## The rating screen, end to end
+
+```bash
+python -m tools.make_demo_step1 data/demo-step1
+SOURCE_DIR=data/demo-step1 RATE_COHORTS=internal python -m server.app
+curl -s -X POST 'http://127.0.0.1:8766/api/raters' -H 'Content-Type: application/json' -d '{"rater_id":"R-01"}'
+```
+
+Open the printed `link` with the host changed to `http://127.0.0.1:8766`. Each rater you create gets their own batch; [`RATING.md`](RATING.md#local-development) has the details.
 
 ## An entry, end to end
 
