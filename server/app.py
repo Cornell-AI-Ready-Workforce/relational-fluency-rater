@@ -407,11 +407,10 @@ def _assignment_or_404(rater_id: str, code: str) -> Dict[str, Any]:
 
 _NO_STORE = {"Cache-Control": "no-store", "X-Robots-Tag": "noindex"}
 
-# The rater's queue and rating screen are the UI prototype
-# (prototype/rater-ui.html), which is not yet connected to /api/queue and
-# /api/rate/<code>. Until it is, the two page routes keep their sign-in and
-# assignment checks and answer with this notice.
-_SCREEN_PENDING = "The rating screen is not connected yet. Your sign-in worked."
+# The rater's queue and rating screen are static/queue.html and
+# static/rate.html, plain pages on step 1's theme that call /api/queue and
+# /api/rate/<code>. The richer UI prototype (prototype/rater-ui.html) can take
+# their place by calling the same routes.
 
 
 def _rater_notice(heading: str, message: str, status_code: int = 200) -> HTMLResponse:
@@ -436,7 +435,8 @@ def rate_home(request: Request, token: Optional[str] = Query(None)):
     if not rid:
         return _rater_notice("Rater sign-in", "Open the link the study team gave you to see your queue.")
     activity.touch(f"rater:{rid}")
-    return _rater_notice(f"Rater {rid}", _SCREEN_PENDING)
+    return HTMLResponse(_page("queue.html", rater_id=html.escape(rid),
+                              build=html.escape(build_sha() or "")), headers=_NO_STORE)
 
 
 @app.get("/api/queue")
@@ -454,7 +454,8 @@ def rate_page(code: str, request: Request):
         return RedirectResponse("/rate", status_code=303)
     _assignment_or_404(rid, code)
     activity.touch(f"rater:{rid}")
-    return _rater_notice(code, _SCREEN_PENDING)
+    return HTMLResponse(_page("rate.html", code=html.escape(code), rater_id=html.escape(rid),
+                              build=html.escape(build_sha() or "")), headers=_NO_STORE)
 
 
 def _transcript_rows(session_id: str) -> Dict[str, Any]:

@@ -4,7 +4,7 @@
 
 ## The rater's path
 
-On this branch the screens in steps 3 and 4 are the UI prototype ([`prototype/rater-ui.html`](../prototype/rater-ui.html)), not yet connected to the API below. Until it is, `/rate` and `/rate/<code>` keep their sign-in and assignment checks and show a notice; the JSON routes, the media stream, drafts and submissions all work.
+The screens in steps 3 and 4 are `static/queue.html` and `static/rate.html`: plain pages on step 1's theme that call `/api/queue` and `/api/rate/<code>`. The richer UI prototype ([`prototype/rater-ui.html`](../prototype/rater-ui.html)) is the intended replacement; it takes over by calling the same routes.
 
 1. A researcher creates the rater and gets a one-time link (below).
 2. The rater opens the link once. The app sets a signed, HttpOnly session cookie (12 hours) and redirects to `/rate`, so the token leaves the address bar.

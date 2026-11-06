@@ -1,0 +1,219 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<link rel="icon" type="image/png" href="/static/favicon.png" />
+<link rel="apple-touch-icon" href="/static/apple-touch-icon.png" />
+<title>Relational Fluency</title>
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<meta name="robots" content="noindex, nofollow" />
+<link rel="preload" href="/static/fonts/inter-latin-wght-normal.woff2" as="font" type="font/woff2" crossorigin />
+<link rel="stylesheet" href="/static/theme.css" />
+<link rel="stylesheet" href="/static/rater.css" />
+</head>
+<body>
+<header>
+  <div class="brand"><img src="/static/logo.png" alt="" /><h1 class="title">Relational Fluency</h1></div>
+  <div class="meta"><a href="/rate">← Queue</a> &nbsp; Rating code <span id="code">{{code}}</span> &nbsp; <span id="where"></span> &nbsp; Rater {{rater_id}}</div>
+</header>
+<main>
+  <div class="rate" id="rate" hidden>
+    <section class="panel media" aria-labelledby="h-media">
+      <h2 id="h-media">The conversation</h2>
+      <p class="note">Watch or listen to the whole conversation before scoring. Click a transcript row to jump there. Space plays and pauses; ← and → skip 5 seconds.</p>
+      <div id="media-slot"></div>
+      <div class="controls">
+        <button type="button" id="play">Play</button>
+        <button type="button" class="secondary" id="back">−5 s</button>
+        <button type="button" class="secondary" id="fwd">+5 s</button>
+        <label class="sr-only" for="speed">Speed</label>
+        <select id="speed"><option value="1">1×</option><option value="1.25">1.25×</option><option value="1.5">1.5×</option></select>
+        <span class="clock" id="clock">0:00 / 0:00</span>
+      </div>
+      <div class="transcript"><table aria-label="Transcript"><tbody id="rows"></tbody></table></div>
+    </section>
+    <section class="panel" aria-labelledby="h-items">
+      <h2 id="h-items">How often did the participant…</h2>
+      <p class="progress" id="progress"></p>
+      <p class="scale" id="scale"></p>
+      <ol class="items" id="items"></ol>
+      <div class="comments">
+        <label for="c-better">What could the participant have done better? (optional)</label>
+        <textarea id="c-better"></textarea>
+        <label for="c-other">Anything else notable? (optional)</label>
+        <textarea id="c-other"></textarea>
+      </div>
+      <div class="submit">
+        <button type="button" id="submit">Submit rating</button>
+        <span class="status" id="save-status"></span>
+        <span class="err" id="err" role="alert"></span>
+      </div>
+    </section>
+  </div>
+  <section class="card done-card" id="done" hidden tabindex="-1" aria-labelledby="h-done">
+    <h2 id="h-done">Rating submitted</h2>
+    <p class="body">Thank you. This conversation is recorded as rated.</p>
+    <div class="actions"><a href="/rate"><button type="button">Back to the queue</button></a></div>
+  </section>
+  <section class="card" id="problem" hidden aria-labelledby="h-problem">
+    <h2 id="h-problem">Not available</h2>
+    <p class="body" id="problem-text"></p>
+  </section>
+</main>
+<div class="build-tag">{{build}}</div>
+<script>
+(function () {
+  var code = document.getElementById('code').textContent;
+  var $ = function (id) { return document.getElementById(id); };
+  var state = { scores: {}, comments: {}, items: [], media: null, saveTimer: null, submitted: false };
+
+  function fmt(s) { s = Math.max(0, Math.floor(s || 0)); return Math.floor(s / 60) + ':' + ('0' + (s % 60)).slice(-2); }
+  function answered() { return Object.keys(state.scores).length; }
+  function progress() { $('progress').textContent = answered() + ' of ' + state.items.length + ' answered'; }
+
+  function renderScale(scale) {
+    var p = $('scale'); p.textContent = '';
+    scale.forEach(function (s) {
+      var b = document.createElement('b'); b.textContent = (s.value === 'na' ? 'N/A' : s.value) + ' ';
+      var span = document.createElement('span'); span.appendChild(b); span.appendChild(document.createTextNode(s.label));
+      p.appendChild(span);
+    });
+  }
+
+  function renderItems(items, scale) {
+    var ol = $('items'); ol.textContent = '';
+    items.forEach(function (it, i) {
+      var li = document.createElement('li'); li.className = 'item';
+      var q = document.createElement('p'); q.className = 'q';
+      var n = document.createElement('span'); n.className = 'n'; n.textContent = (i + 1) + '.';
+      q.appendChild(n); q.appendChild(document.createTextNode(it.label)); li.appendChild(q);
+      var row = document.createElement('div'); row.className = 'choices'; row.setAttribute('role', 'group');
+      row.setAttribute('aria-label', it.label);
+      scale.forEach(function (s) {
+        var b = document.createElement('button'); b.type = 'button';
+        b.textContent = s.value === 'na' ? 'N/A' : s.value; b.title = s.label;
+        if (s.value === 'na') b.className = 'na';
+        b.setAttribute('aria-pressed', String(state.scores[it.key] === s.value));
+        b.addEventListener('click', function () {
+          if (state.submitted) return;
+          state.scores[it.key] = s.value;
+          Array.prototype.forEach.call(row.children, function (c) { c.setAttribute('aria-pressed', 'false'); });
+          b.setAttribute('aria-pressed', 'true');
+          progress(); scheduleSave();
+        });
+        row.appendChild(b);
+      });
+      li.appendChild(row); ol.appendChild(li);
+    });
+    progress();
+  }
+
+  function renderTranscript(rows) {
+    var tb = $('rows'); tb.textContent = '';
+    rows.forEach(function (r) {
+      var tr = document.createElement('tr'); tr.dataset.t = r.t;
+      if (r.who === 'Participant') tr.className = 'participant';
+      var t = document.createElement('td'); t.className = 't'; t.textContent = fmt(r.t);
+      var w = document.createElement('td'); w.className = 'who'; w.textContent = r.who;
+      var x = document.createElement('td'); x.textContent = r.text || '…';
+      tr.appendChild(t); tr.appendChild(w); tr.appendChild(x);
+      tr.addEventListener('click', function () { if (state.media) { state.media.currentTime = r.t; state.media.play(); } });
+      tb.appendChild(tr);
+    });
+  }
+
+  function highlight() {
+    if (!state.media) return;
+    var now = state.media.currentTime, rows = $('rows').children, current = null;
+    for (var i = 0; i < rows.length; i++) { if (parseFloat(rows[i].dataset.t) <= now) current = rows[i]; }
+    for (var j = 0; j < rows.length; j++) rows[j].classList.toggle('now', rows[j] === current);
+    $('clock').textContent = fmt(now) + ' / ' + fmt(state.media.duration);
+  }
+
+  function mountMedia(media) {
+    var slot = $('media-slot'); slot.textContent = '';
+    if (!media) {
+      var d = document.createElement('div'); d.className = 'nomedia';
+      d.textContent = 'No recording is available for this conversation. Score from the transcript, and use N/A where it gives no basis.';
+      slot.appendChild(d); $('play').disabled = $('back').disabled = $('fwd').disabled = true; return;
+    }
+    var el = document.createElement(media.kind === 'video' ? 'video' : 'audio');
+    el.src = media.url; el.preload = 'metadata'; el.controls = false; el.setAttribute('controlsList', 'nodownload');
+    el.addEventListener('contextmenu', function (e) { e.preventDefault(); });
+    el.addEventListener('timeupdate', highlight); el.addEventListener('loadedmetadata', highlight);
+    el.addEventListener('play', function () { $('play').textContent = 'Pause'; });
+    el.addEventListener('pause', function () { $('play').textContent = 'Play'; });
+    slot.appendChild(el); state.media = el;
+    $('play').addEventListener('click', function () { el.paused ? el.play() : el.pause(); });
+    $('back').addEventListener('click', function () { el.currentTime = Math.max(0, el.currentTime - 5); });
+    $('fwd').addEventListener('click', function () { el.currentTime = Math.min(el.duration || 1e9, el.currentTime + 5); });
+    $('speed').addEventListener('change', function () { el.playbackRate = parseFloat($('speed').value); });
+    document.addEventListener('keydown', function (e) {
+      var tag = (e.target.tagName || '').toLowerCase();
+      if (tag === 'textarea' || tag === 'input' || tag === 'select' || tag === 'button') return;
+      if (e.code === 'Space') { e.preventDefault(); el.paused ? el.play() : el.pause(); }
+      if (e.key === 'ArrowLeft') { el.currentTime = Math.max(0, el.currentTime - 5); }
+      if (e.key === 'ArrowRight') { el.currentTime = Math.min(el.duration || 1e9, el.currentTime + 5); }
+    });
+  }
+
+  function body() {
+    return { scores: state.scores, comments: { better: $('c-better').value, other: $('c-other').value } };
+  }
+
+  function scheduleSave() {
+    if (state.submitted) return;
+    clearTimeout(state.saveTimer);
+    state.saveTimer = setTimeout(async function () {
+      $('save-status').textContent = 'Saving…';
+      var r = await fetch('/api/rate/' + encodeURIComponent(code) + '/draft', {
+        method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body()) });
+      $('save-status').textContent = r.ok ? 'Draft saved' : 'Draft not saved';
+    }, 800);
+  }
+
+  async function submit() {
+    $('err').textContent = '';
+    if (answered() < state.items.length) {
+      $('err').textContent = 'Answer every item (use N/A where the conversation gave no chance).'; return;
+    }
+    var btn = $('submit'); btn.disabled = true; btn.setAttribute('aria-busy', 'true');
+    var r = await fetch('/api/rate/' + encodeURIComponent(code) + '/submit', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body()) });
+    btn.removeAttribute('aria-busy');
+    if (r.ok || r.status === 409) {
+      state.submitted = true; if (state.media) state.media.pause();
+      $('rate').hidden = true; $('done').hidden = false; $('done').focus(); return;
+    }
+    btn.disabled = false;
+    var j = {}; try { j = await r.json(); } catch (e) {}
+    $('err').textContent = j.detail || ('Could not submit (' + r.status + ')');
+  }
+
+  async function load() {
+    var r = await fetch('/api/rate/' + encodeURIComponent(code), { headers: { 'Accept': 'application/json' } });
+    if (r.status === 401) { location.href = '/rate'; return; }
+    if (!r.ok) {
+      var j = {}; try { j = await r.json(); } catch (e) {}
+      $('problem-text').textContent = j.detail || ('This conversation could not be loaded (' + r.status + ').');
+      $('problem').hidden = false; return;
+    }
+    var d = await r.json();
+    $('where').textContent = 'Encounter ' + d.position + ' of ' + d.total;
+    state.items = d.items; state.scores = d.draft.scores || {};
+    $('c-better').value = (d.draft.comments || {}).better || '';
+    $('c-other').value = (d.draft.comments || {}).other || '';
+    renderScale(d.scale); renderItems(d.items, d.scale); renderTranscript(d.transcript); mountMedia(d.media);
+    $('c-better').addEventListener('input', scheduleSave); $('c-other').addEventListener('input', scheduleSave);
+    $('submit').addEventListener('click', submit);
+    if (d.status === 'done') {
+      state.submitted = true; $('submit').disabled = true; $('save-status').textContent = 'Already submitted';
+      Array.prototype.forEach.call(document.querySelectorAll('.choices button'), function (b) { b.disabled = true; });
+    }
+    $('rate').hidden = false;
+  }
+  load();
+})();
+</script>
+</body>
+</html>
