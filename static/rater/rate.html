@@ -3,15 +3,25 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex, nofollow">
 <title>Relational Fluency rating</title>
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=Inter:wght@400;500;600&display=swap">
+<link rel="icon" type="image/png" href="/static/favicon.png">
+<link rel="apple-touch-icon" href="/static/apple-touch-icon.png">
+<link rel="preload" href="/static/fonts/inter-latin-wght-normal.woff2" as="font" type="font/woff2" crossorigin>
 <style>
-/* Layout: a collapsible side menu listing the rater's four stages, then two working columns, WATCH | RATE,
+/* The rating screen, from the UI prototype (prototype/rater-ui.html until 2026-11-05), fed by the app:
+   GET/POST /api/batch for the rater's recordings, GET /api/rate/<code> for each one, drafts saved
+   with PUT /api/rate/<code>/draft and answers sent with POST /api/rate/<code>/submit.
+   Layout: a collapsible side menu listing the rater's recordings, then two working columns, WATCH | RATE,
    and a full-width review page before each stage is submitted. One job per control, one filled button
    at a time. The page follows the rater's own settings: light or dark, more contrast, forced colors,
-   reduced motion and text size. It offers no in-page switches for any of them. */
+   reduced motion and text size. It offers no in-page switches for any of them.
+   It has its own palette, not static/theme.css, and like every page here it fetches nothing from
+   another site (the Content-Security-Policy is 'self'): Inter is the app's own copy. */
+@font-face { font-family: "Inter"; font-style: normal; font-weight: 100 900; font-display: swap;
+  src: url("/static/fonts/inter-latin-wght-normal.woff2") format("woff2");
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308,
+    U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD; }
 :root {
   color-scheme: light;
   --ground: #F7F7F5;
@@ -35,7 +45,7 @@
   --focus-w: 2px;
   --shadow: 0 1px 2px rgba(23, 24, 26, .06);
   --sans: "Inter", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
-  --mono: "IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  --mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
   --r: 10px;
   --r-sm: 6px;
   --ctl-h: 2.25rem;
@@ -153,8 +163,11 @@ button, input, select, textarea { font: inherit; color: inherit; }
 .player { padding: 14px; display: grid; gap: 10px; }
 .screen { position: relative; aspect-ratio: 16 / 9; width: min(100%, max(26rem, calc((100vh - 460px) * 16 / 9))); max-width: 100%; margin-inline: auto; background: var(--screen); border-radius: var(--r-sm); overflow: hidden; display: grid; place-items: center; user-select: none; cursor: pointer; }
 .screen:focus { outline: none; }
+.screen video { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; background: var(--screen); }
+.screen.audio video { visibility: hidden; }
 .screen .avatar { width: 16%; max-width: 120px; height: auto; color: var(--screen-ink); opacity: .55; }
-.screen:not(.playing) .avatar { visibility: hidden; }
+.screen:not(.audio) .avatar, .screen:not(.playing) .avatar { visibility: hidden; }
+.screen-msg { position: absolute; left: 12px; right: 12px; top: 12px; margin: 0; color: #fff; background: rgba(0, 0, 0, .6); border-radius: 4px; padding: 6px 10px; font-size: 0.8125rem; }
 .big-play { position: absolute; inset: 0; margin: auto; width: 4rem; height: 4rem; border-radius: 50%; background: rgba(0, 0, 0, .6); box-shadow: 0 0 0 1px rgba(255, 255, 255, .55); color: #fff; display: grid; place-items: center; pointer-events: none; }
 .big-play svg { width: 1.5rem; height: 1.5rem; margin-left: 4px; }
 .screen.playing .big-play { display: none; }
@@ -297,11 +310,13 @@ button, input, select, textarea { font: inherit; color: inherit; }
 .field label { font-weight: 500; }
 .field textarea { width: 100%; min-height: 4.5rem; resize: vertical; border: 1px solid var(--field); border-radius: var(--r-sm); padding: 8px 10px; background: var(--surface); }
 .rv-foot { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
+#rv-done { display: grid; gap: 14px; }
 .done-card { padding: 18px 20px; display: grid; gap: 10px; justify-items: start; border-color: var(--ok); }
 .done-card p { margin: 0; }
 .code-row { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
 .code-row .code { font: 500 0.9375rem/1.2 var(--mono); background: var(--surface); border: 1px solid var(--ok); border-radius: var(--r-sm); padding: 6px 10px; user-select: all; }
 .copy-help { color: var(--muted); font-size: 0.8125rem; }
+.err { margin: 0; color: var(--warn); font-size: 0.8125rem; }
 
 /* First-run tour: a dimmed page with the current part of the screen left lit, and a small card beside it */
 .tour { position: fixed; inset: 0; width: 100vw; height: 100vh; max-width: none; max-height: none; margin: 0; padding: 0; border: 0; background: transparent; overflow: hidden; color: var(--ink); }
@@ -378,10 +393,16 @@ html:has(#tour[open]) { overflow: hidden; }
   </nav>
 
   <main class="main" id="main" tabindex="-1">
+    <!-- LOADING, OR NOTHING TO RATE -->
+    <section id="view-msg" aria-labelledby="msg-h">
+      <div class="enc-head"><h1 id="msg-h" tabindex="-1">Loading your recordings</h1></div>
+      <div class="review"><p class="intro" id="msg-body">One moment.</p><div id="msg-act"></div></div>
+    </section>
+
     <!-- STAGE -->
-    <section id="view-stage" aria-labelledby="enc-h">
+    <section id="view-stage" aria-labelledby="enc-h" hidden>
       <div class="enc-head">
-        <h1 id="enc-h" tabindex="-1">Recording 1 <span class="of">of 4</span></h1>
+        <h1 id="enc-h" tabindex="-1">Recording 1</h1>
         <p class="how" id="how"></p>
         <p class="saved" id="saved"></p>
       </div>
@@ -390,9 +411,11 @@ html:has(#tour[open]) { overflow: hidden; }
           <h2 class="sr" id="watch-h">Recording and transcript</h2>
           <div class="card player">
             <div class="screen" id="screen" tabindex="-1">
+              <video id="media" playsinline preload="metadata" disablepictureinpicture></video>
               <svg class="avatar" viewBox="0 0 64 64" aria-hidden="true"><circle cx="32" cy="22" r="11" fill="currentColor"/><path d="M10 58c0-12.2 9.8-21 22-21s22 8.8 22 21z" fill="currentColor"/></svg>
               <span class="big-play" aria-hidden="true"><svg viewBox="0 0 16 16"><path d="M4 2.5v11l9-5.5z" fill="currentColor"/></svg></span>
               <span class="speaking" id="speaking" hidden></span>
+              <p class="screen-msg" id="screen-msg" hidden></p>
             </div>
             <div class="track" id="track" role="slider" tabindex="0" aria-label="Position in video" aria-valuemin="0" aria-valuemax="0" aria-valuenow="0" aria-valuetext="0:00">
               <div class="bands" id="bands" aria-hidden="true"></div>
@@ -438,7 +461,7 @@ html:has(#tour[open]) { overflow: hidden; }
     <!-- REVIEW -->
     <section id="view-review" aria-labelledby="rv-h" hidden>
       <div class="enc-head">
-        <h1 id="rv-h" tabindex="-1">Recording 1 <span class="of">of 4</span>: check your answers</h1>
+        <h1 id="rv-h" tabindex="-1">Recording 1: check your answers</h1>
       </div>
       <div class="review">
         <div id="rv-done"></div>
@@ -459,6 +482,7 @@ html:has(#tour[open]) { overflow: hidden; }
         <div class="rv-foot" id="rv-foot">
           <button class="btn" id="rv-back" type="button"></button>
           <button class="btn primary" id="rv-submit" type="button">Submit answers</button>
+          <p class="err" id="rv-error" role="alert" hidden></p>
         </div>
       </div>
     </section>
@@ -482,7 +506,7 @@ html:has(#tour[open]) { overflow: hidden; }
 </dialog>
 
 <script>
-(() => {
+(async () => {
   'use strict';
   document.documentElement.lang = 'en';
 
@@ -499,29 +523,76 @@ html:has(#tour[open]) { overflow: hidden; }
     pause: '<svg class="ico" viewBox="0 0 16 16" aria-hidden="true"><path d="M4 2.5h3v11H4zM9 2.5h3v11H9z" fill="currentColor"/></svg>',
   };
 
-  /* ---------- Example data: four made-up recordings ---------- */
-  const CONTENT = [{"duration":314,"convs":[{"start":0,"end":82},{"start":117,"end":312}],"turns":[{"c":0,"t":3,"s":"P","x":"Hey, Riley. What's up?"},{"c":0,"t":8,"s":"C","x":"Hey, there's something I need to talk to you about. This morning I saw Sam present your latest analysis to leadership, and he didn't mention once that you ran those numbers. We can't let this happen again.","n":"C1"},{"c":0,"t":22,"s":"P","x":"Huh. Again? I already asked him about that after the last time."},{"c":0,"t":29,"s":"C","x":"I know. Honestly, I think you should email leadership with your original files attached. They've got your name right on them. I'd help you draft it. What do you think?","n":"C1"},{"c":0,"t":42,"s":"P","x":"I don't want to make it a big thing. Maybe Sam just forgot to mention me."},{"c":0,"t":50,"s":"C","x":"Or you could just let it go, I suppose. Decide it's not worth the drama. Honestly, I bet that's what Sam's counting on.","n":"C1"},{"c":0,"t":59,"s":"P","x":"No. I'd rather talk to Sam directly before I decide anything."},{"c":0,"t":67,"s":"C","x":"Good. I've got your back, and I want to hear how it goes. I have to get back to my desk, but he's out by the elevators right now.","n":"C1"},{"c":0,"t":78,"s":"P","x":"Okay. Thanks for telling","note":"line cut off"},{"c":1,"t":121,"s":"P","x":"Hey, Sam."},{"c":1,"t":127,"s":"C","x":"Oh, hey. Heading down? Long morning already. Got any new results for me today?","n":"C2"},{"c":1,"t":139,"s":"P","x":"Actually, that's kind of what I wanted to talk about. You presented my analysis again this morning and didn't mention me. It's my analysis, and the authorship needs to be right. How do we fix that going forward?"},{"c":1,"t":156,"s":"C","x":"Wow, okay. I did most of the legwork shaping that into a narrative leadership could follow. I don't think it's that simple.","n":"C2"},{"c":1,"t":171,"s":"P","x":"Come on. The analysis came from my file. I sent it to you."},{"c":1,"t":181,"s":"C","x":"Look, in those rooms people say \"I.\" Everyone's work gets folded together, and nobody's keeping score.","n":"C2"},{"c":1,"t":195,"s":"P","x":"Maybe. I just don't want this getting weird between us."},{"c":1,"t":205,"s":"C","x":"Totally. Anyway, we should line up what leadership wants next. Got a minute for that?","n":"C2"},{"c":1,"t":218,"s":"P","x":"We can do that in a sec. I'm not keeping score, and I know the framing was yours. I just want the credit for the analysis to be accurate going forward."},{"c":1,"t":234,"s":"C","x":"Fine. Maybe I could have named your part in there, or said \"we.\" Call it an oversight. The framing is still what made it land in the room, though.","n":"C2"},{"c":1,"t":250,"s":"P","x":"Could you mention it at Thursday's review? Just one line saying the model was mine."},{"c":1,"t":263,"s":"C","x":"Thursday. Yeah, I can do that. Send me a sentence and I'll use it.","n":"C2"},{"c":1,"t":276,"s":"P","x":"","note":"not transcribed"},{"c":1,"t":285,"s":"C","x":"That's my lift. Anything else can wait until another time.","n":"C2"},{"c":1,"t":296,"s":"P","x":"Okay. Thanks for hearing me out."},{"c":1,"t":306,"s":"C","x":"Sure. See you Thursday.","n":"C2"}]},{"duration":382,"convs":[{"start":0,"end":60},{"start":80,"end":378}],"turns":[{"c":0,"t":4,"s":"P","x":"Hi Morgan. I wanted to talk about my pay. Two cycles ago you said if I took on the extra reporting you'd sort it out, and since then I've also picked up the launch and I've been covering for two people who left."},{"c":0,"t":23,"s":"C","x":"I did say that. I want to keep you, and you know what this cycle looks like.","n":"C1"},{"c":0,"t":32,"s":"P","x":"I do. And I'm guessing you're about to tell me the budget's frozen, so I'm not asking you to sign anything today. I want to know what an exception would actually take."},{"c":1,"t":81,"s":"C","x":"It takes a written case to the director, and those have gone through before. But first... how are you actually holding up with all of it?","n":"C1"},{"c":1,"t":90,"s":"P","x":"Tired, honestly. I've been doing evenings most weeks since the launch started. So the specific ask is my base moved to where it should have been two cycles ago. Something like twelve percent."},{"c":1,"t":99,"s":"C","x":"Twelve percent... there's nothing in the pot this cycle, for anyone, and nothing I can sign on my own. So what were you hoping I could do with it?","n":"C1"},{"c":1,"t":114,"s":"P","x":"Fix it. I've been doing three people's work for over a year and I'm still on the same number. That's just not right."},{"c":1,"t":126,"s":"C","x":"Nobody's arguing about the work, and it's been a long year for you. It still doesn't get past the freeze on its own, though... what else have you got?","n":"C1"},{"c":1,"t":141,"s":"P","x":"Okay. I have a written offer from another company, and it's noticeably more. I'm telling you because I'd rather stay, not to hold it over you."},{"c":1,"t":156,"s":"C","x":"Oh, I... didn't know that. How long have they given you?","n":"C1"},{"c":1,"t":163,"s":"P","x":"Two weeks. And if I go, you're backfilling the launch and all the reporting in the middle of a freeze. That's going to cost a lot more than a raise."},{"c":1,"t":178,"s":"C","x":"Losing you mid-launch would hurt, I won't pretend otherwise. But you're not the only one stretched right now, and I know it, so how does that look from your side?","n":"C1"},{"c":1,"t":193,"s":"P","x":"Honestly, I can only speak for me. I'm the one with an offer sitting in my inbox."},{"c":1,"t":202,"s":"C","x":"If I do this for you, I've opened a door I can't shut again. Unless there's something I'm not seeing?","n":"C1"},{"c":1,"t":214,"s":"P","x":"There is, actually. Alex got an off-cycle raise last quarter. So that door's been opened once already, and as far as I can tell nothing fell apart."},{"c":1,"t":231,"s":"C","x":"That's... yes, Alex's went through off-cycle. It went through on a written case, though, and a precedent on its own won't get yours past the director.","n":"C1"},{"c":1,"t":245,"s":"P","x":"","note":"not transcribed"},{"c":1,"t":253,"s":"C","x":"Besides the director, finance has to be comfortable that the number fits the band, and the director wants it in writing with numbers behind it. What could you do to help line that up?","n":"C1"},{"c":1,"t":270,"s":"P","x":"I could ask the launch lead to write a short note on what I've been covering. And I'd want to sit down with whoever in finance owns our band before it goes up, so they're not seeing it cold, and if","note":"line cut off"},{"c":1,"t":288,"s":"C","x":"Start with the writing, then. What's actually grown, and what number are you asking for?","n":"C1"},{"c":1,"t":296,"s":"P","x":"The reporting is about eight hours a week that didn't exist two years ago, plus the launch, plus approvals for the two people who left. I'd ask for eight percent off-cycle from the start of next quarter, and I can have the write-up to you by Friday."},{"c":1,"t":315,"s":"C","x":"Eight from next quarter, in writing by Friday... that I could take upward. But what do I say to everyone else who's stretched when they come asking the week it lands?","n":"C1"},{"c":1,"t":331,"s":"P","x":"The same thing you just said to me. It takes a written case with real numbers, and the bar's the same for everyone. Then you're not deciding on feelings, and you've got cover with the director."},{"c":1,"t":349,"s":"C","x":"So, your write-up on Friday, and I take it to the director and finance the week after. What would you want to happen next?","n":"C1"},{"c":1,"t":362,"s":"P","x":"If it goes through, great. If it doesn't, I need to know before the two weeks are up, because then I've got a decision to make. Can we put fifteen minutes in for next Thursday?"}]},{"duration":358,"convs":[{"start":0,"end":358}],"turns":[{"c":0,"t":4,"s":"P","x":"Hi, everyone. Thanks for making time. You all know the news, so I'm not going to dress it up. Before I say anything about the quarter, I'd like to hear from each of you. What's actually going on right now?"},{"c":0,"t":20,"s":"C","x":"Hey. Two more people on this team are going to leave, and nothing you can offer in this meeting is going to stop that. Two walked over pay inside six weeks, and nobody above us has said a word since.","n":"C1"},{"c":0,"t":37,"s":"P","x":"I hear you, Alex, I really do. But I think if we pull together on this, we can come out of the quarter stronger than we","note":"line cut off"},{"c":0,"t":48,"s":"C","x":"Priya's queue had forty-one open reviews in it this morning. Three of us, same deadlines we had when there were five.","n":"C1"},{"c":0,"t":61,"s":"P","x":"Okay. That sounded like a pep talk, fair enough. I can't change pay, and I'm not going to pretend I can. What I can do is take that number, forty-one reviews and three people, to my director in writing by Thursday and ask what gets cut."},{"c":0,"t":81,"s":"C","x":"Thursday. And if what comes back is that nothing gets cut?","n":"C1"},{"c":0,"t":91,"s":"P","x":"Then I tell you that on Friday, and we decide ourselves what slips. I'd rather drop something on purpose than drop it by accident. Jordan, you've been quiet. Where are you at with all this?"},{"c":0,"t":108,"s":"C","x":"Hi. I stopped doing the second pass on everyone's reviews about three weeks ago, and there's nothing in that to discuss. What do you need me doing?","n":"C2"},{"c":0,"t":121,"s":"P","x":"Okay. Thanks for telling me. Could you take the four client reviews out of Priya's queue for now? And Casey, how about you, how's it going?"},{"c":0,"t":135,"s":"C","x":"Hi. Sorry, can I ask something? Priya's whole queue landed on me and there's more of it than I can actually get through. And it all goes out under my name now, so the first time one's wrong, that comes back on me, doesn't it?","n":"C3"},{"c":0,"t":154,"s":"P","x":"No, it doesn't, and I'm really glad you said it in here. The four client reviews are Jordan's from today. For everything else in your queue, I sign off alongside you as lead, so if one comes back wrong, it comes back to me first."},{"c":0,"t":173,"s":"C","x":"Okay. Okay, that helps. Is that from this week, the signing off?","n":"C3"},{"c":0,"t":182,"s":"P","x":"From today. Anything you send after this meeting has my name on it too."},{"c":0,"t":193,"s":"C","x":"Nobody's doing the second pass now. The first bad review that goes out, a client finds it before we do.","n":"C2"},{"c":0,"t":205,"s":"P","x":"Jordan, that's exactly it. You're the reason this team has never shipped a bad review, and I don't think anyone upstairs knows that. I want your call on which reviews still need a second pass, and your name on that list when I take it up on Thursday."},{"c":0,"t":225,"s":"C","x":"Yeah. Okay. Client work, and anything Casey's doing for the first time. The rest can go out on one pass. That's maybe a third of the queue.","n":"C2"},{"c":0,"t":240,"s":"P","x":"","note":"not transcribed"},{"c":0,"t":247,"s":"C","x":"So what's this team for now? Where are we in six months, if anyone's still on it?","n":"C1"},{"c":0,"t":259,"s":"P","x":"In six months I want us to be the team other groups bring their hardest reviews to, because we got through the worst quarter we've had without shipping a bad one. That record is already ours. I want to keep it, and I want it written down upstairs with your three names on it."},{"c":0,"t":278,"s":"C","x":"I'll wait and see what comes back on Thursday.","n":"C1"},{"c":0,"t":289,"s":"P","x":"That's fair. Casey, Jordan, I meant that about your names. Nothing goes up on Thursday that you two haven't read first."},{"c":0,"t":302,"s":"C","x":"Okay. Thank you. I'd like to see it before it goes, yeah.","n":"C3"},{"c":0,"t":312,"s":"C","x":"What would you tell the next person who asks why anyone's still here?","n":"C1"},{"c":0,"t":323,"s":"P","x":"Honestly? I'd probably say the work's interesting and the people are good. I don't have a better answer than that yet. Let's leave it there. Thursday I take the numbers and Jordan's list up, and we meet Friday at ten to decide what we drop."},{"c":0,"t":343,"s":"C","x":"Friday, then. You still haven't said what happens if two more go.","n":"C1"},{"c":0,"t":352,"s":"C","x":"Thanks. Thank you, really.","n":"C3"}]},{"duration":340,"convs":[{"start":0,"end":222},{"start":236,"end":340}],"turns":[{"c":0,"t":4,"s":"P","x":"Okay, sorry, we got a bit sidetracked there. Dan, you were saying about the date?"},{"c":0,"t":12,"s":"C","x":"Monday the 9th. Every team, same morning. Stage it and we're dragging this out for a month, and by week three nobody remembers why we started.","n":"C1"},{"c":0,"t":25,"s":"C","x":"I was, um, sort of close to the tail end of last year's rollout, and I might have this wrong, but—","n":"C2"},{"c":0,"t":31,"s":"C","x":"Priya, yeah, last year was a different system, it doesn't carry over. So. The 9th. Can I get a yes on the 9th?","n":"C1"},{"c":0,"t":44,"s":"P","x":"I mean, the 9th is really tight for my team. I'd want Wednesday the 18th. I need that week to get my people ready, and honestly, I'm not launching on a Monday."},{"c":0,"t":60,"s":"C","x":"Or one team goes first. Whichever's readiest. Nobody else moves till they're through it.","n":"C3"},{"c":0,"t":68,"s":"C","x":"The 18th, noted. And that's what I was saying earlier, my point from the start. One team out front on the 9th, everyone else right behind it that same week.","n":"C1"},{"c":0,"t":80,"s":"C","x":"Pretty sure that was my— eh. Sure.","n":"C3"},{"c":0,"t":87,"s":"P","x":"Hang on, Dan, the one-team-first thing was Chris's. Chris, what are you actually hearing from the teams? Who'd be ready to go first?"},{"c":0,"t":101,"s":"C","x":"Sales. Ready the 9th, happy to go first. Operations wants the 30th, after their inventory count.","n":"C3"},{"c":0,"t":115,"s":"C","x":"Last year I was, um... it's probably all in my notes somewhere. Never mind.","n":"C2"},{"c":0,"t":127,"s":"P","x":"No, wait. Priya, you've started on that twice now. What happened last year?"},{"c":0,"t":134,"s":"C","x":"It went out to every team at once, and support collapsed inside the first week. And the plan for the 9th is that same plan again, every team on one day.","n":"C2"},{"c":0,"t":152,"s":"P","x":"Okay. That's kind of a big deal. Priya, do you know where any of the other teams are on dates?"},{"c":0,"t":163,"s":"C","x":"Support wants Monday the 23rd, their tickets peak in the first two weeks of the month. Finance wants the 16th, once their month-end close is done.","n":"C2"},{"c":0,"t":178,"s":"P","x":"Okay, so what if Sales pilots on the 9th, Finance goes on the 16th, my team on the 18th, and then Support on the","note":"line cut off"},{"c":0,"t":186,"s":"C","x":"Chris's pilot, fine, Sales on the 9th. But staging the rest over a month is slower. Everyone else goes that same week.","n":"C1"},{"c":0,"t":197,"s":"P","x":"Dan, come on. Everyone on one day is dead, Priya just told us why. We're staging it."},{"c":0,"t":210,"s":"C","x":"Fine. Staged, Sales first, the rest on the dates we just heard. Chris, you're good with that? Then that's decided.","n":"C1"},{"c":1,"t":244,"s":"C","x":"Right, who does what. I'll write it up tonight and take it to leadership myself on Thursday. Chris, calendar holds for each team. Priya, the reminder email to the leads.","n":"C1"},{"c":1,"t":261,"s":"P","x":"Sure, you take it upstairs, Dan. Priya, would you want to own the risk section, though? It was your point that changed the plan."},{"c":1,"t":274,"s":"C","x":"I'd take it. I'd need an hour with my notes from last year, and some time with the two people in Support who were there.","n":"C2"},{"c":1,"t":289,"s":"P","x":"","note":"not transcribed"},{"c":1,"t":300,"s":"C","x":"Priya's section, then, and she walks leadership through that part herself. Rest of it's mine. Thursday.","n":"C1"},{"c":1,"t":315,"s":"P","x":"Chris, Priya, anything I've missed before we wrap?"},{"c":1,"t":324,"s":"C","x":"Holds. Sales the 9th, Finance the 16th, yours the 18th, Support the 23rd, Ops the 30th. That's mine.","n":"C3"}]}];
-  // Questions per stage.
-  const QUESTIONS = [
-    ['Tries to resolve conflict instead of allowing it to fester', 'Resolves conflict by de-escalating the emotions in a situation', 'Allows conflict to fester', 'Tries to resolve conflict by openly talking about disagreements with those involved', 'Resolves conflict by bringing it into the open'],
-    ['Convinces others by using multiple approaches', 'Convinces others by appealing to their self-interest', 'Anticipates how others will respond when trying to convince them', 'Convinces others by developing behind-the-scenes support', 'Convinces others through discussion'],
-    ['Leads by building pride in the group', 'Leads by inspiring people', 'Does not inspire followers', 'Leads by bringing out the best in people', 'Leads by articulating a compelling vision'],
-    ['Does not cooperate with others', 'Works well in teams by being supportive', 'Works well in teams by encouraging cooperation', "Works well in teams by soliciting others' input", 'Works well in teams by being respectful of others', 'Works well in teams by encouraging participation of everyone present'],
-  ];
-  // Characters are shown as "Character", or "Character 1, 2, …" when a stage has more than one.
-  function speakerLabels(turns) {
-    const names = [];
-    turns.forEach((tu) => { if (tu.s === 'C' && tu.n && !names.includes(tu.n)) names.push(tu.n); });
-    const out = {};
-    names.forEach((n, k) => { out[n] = names.length > 1 ? 'Character ' + (k + 1) : 'Character'; });
-    return out;
+  /* ---------- The app: one fetch helper, and a page for loading and for nothing to rate ---------- */
+  const $ = (id) => document.getElementById(id);
+  async function api(method, url, body) {
+    const r = await fetch(url, {
+      method, credentials: 'same-origin',
+      headers: body ? { 'Content-Type': 'application/json' } : {},
+      body: body ? JSON.stringify(body) : undefined,
+    });
+    // Signed out (the session lasts 12 hours): /rate says how to sign in again.
+    if (r.status === 401) { location.href = '/rate'; throw new Error('Signed out.'); }
+    let data = null;
+    try { data = await r.json(); } catch (e) { /* not JSON */ }
+    if (!r.ok) {
+      const err = new Error((data && typeof data.detail === 'string' && data.detail) || `The app answered ${r.status}.`);
+      err.status = r.status;
+      throw err;
+    }
+    return data;
   }
-  const STAGES = CONTENT.map((c, i) => ({ ...c, items: QUESTIONS[i], who: speakerLabels(c.turns) }));
-  // An example is a participant turn index (one line) or { a, b } in seconds (a clip).
-  const COMPLETION_CODE = 'RFR-EXAMPLE-7K2Q';
+  function showMessage(title, body, action) {
+    ['view-stage', 'view-review'].forEach((id) => { $(id).hidden = true; });
+    $('view-msg').hidden = false;
+    $('msg-h').textContent = title;
+    $('msg-body').textContent = body;
+    $('msg-act').innerHTML = action ? `<button class="btn primary" type="button" id="msg-btn">${action.label}</button>` : '';
+    if (action) $('msg-btn').addEventListener('click', action.run);
+    $('msg-h').focus({ preventScroll: true });
+  }
+  const tryAgain = { label: 'Try again', run: () => location.reload() };
+
+  /* ---------- Data: this rater's batch of recordings, from the app ---------- */
+  let BATCH;
+  try {
+    BATCH = await api('GET', '/api/batch');
+    if (!BATCH.batch) BATCH = await api('POST', '/api/batch');
+  } catch (e) {
+    if (e.status === 409) showMessage('Nothing to rate right now', e.message + ' The study team will let you know when there are more.');
+    else showMessage("Your recordings didn't load", e.message, tryAgain);
+    return;
+  }
+  // One stage per recording: its transcript as the screen draws it, and its questions in the app's order.
+  function toStage(d) {
+    return {
+      code: d.code,
+      duration: Math.max(1, Number(d.duration) || 1),
+      convs: Array.from({ length: Math.max(1, d.parts || 1) }, () => ({})),
+      turns: d.transcript.map((r) => ({ c: r.part || 0, t: Number(r.t) || 0, s: r.participant ? 'P' : 'C', x: r.text || '', note: r.note || '', who: r.who })),
+      items: d.items.map((it) => it.label),
+      keys: d.items.map((it) => it.key),
+      media: d.media,
+      draft: d.draft || {},
+      submitted: d.submitted,
+    };
+  }
+  let STAGES;
+  try {
+    STAGES = await Promise.all(BATCH.stages.map((x) => api('GET', '/api/rate/' + encodeURIComponent(x.code)).then(toStage)));
+  } catch (e) {
+    showMessage("Your recordings didn't load", e.message, tryAgain);
+    return;
+  }
+  $('view-msg').hidden = true;
+  const N = STAGES.length;
+  let COMPLETION_CODE = BATCH.completion_code || '';
   // How many examples an answer needs.
   const needed = (score) => (score === '1' ? 0 : 1);
   const ANCHORS = { 1: 'Never', 2: 'Rarely', 3: 'Sometimes', 4: 'Often', 5: 'Consistently' };
+  const WORDS = ['no', 'one', 'two', 'three', 'four', 'five', 'six', 'seven', 'eight', 'nine'];
+  const allDoneTitle = () => (N === 1 ? 'Your recording is done' : `All ${N} recordings are done`);
+  const ofN = () => (N > 1 ? ` <span class="of">of ${N}</span>` : '');
 
   /* ---------- Copy helpers: whole strings, real plural rules, the rater's own date format ---------- */
   const PR = new Intl.PluralRules('en');
@@ -530,10 +601,10 @@ html:has(#tour[open]) { overflow: hidden; }
   const DATE = new Intl.DateTimeFormat(undefined, { day: 'numeric', month: 'short' });
   const today = () => DATE.format(new Date());
 
-  /* ---------- Question order: fixed per stage, mixed, and no reverse-worded question right after its twin ---------- */
-  const ORDERS = [[0, 3, 1, 4, 2], [0, 2, 4, 3, 1], [4, 1, 3, 0, 2], [1, 5, 4, 2, 3, 0]];
+  /* ---------- Question order: the app's, fixed per rater and recording ---------- */
+  const order = () => G().items.map((q, k) => k);
   const selectable = (g, i) => !!g.turns[i] && g.turns[i].s === 'P' && !!g.turns[i].x;
-  const whoOf = (g, tu) => (tu.s === 'P' ? 'Participant' : g.who[tu.n] || 'Character');
+  const whoOf = (g, tu) => tu.who;
 
   /* ---------- Examples: one line (a turn index) or a clip ({ a, b } in seconds) ---------- */
   const isRange = (e) => typeof e === 'object' && e !== null;
@@ -547,10 +618,9 @@ html:has(#tour[open]) { overflow: hidden; }
   // The participant's turns in a clip, transcribed or not.
   const clipLines = (g, e) => g.turns.map((tu, i) => i).filter((i) => g.turns[i].s === 'P' && inClip(g, i, e));
 
-  /* ---------- State ---------- */
-  const KEY = 'rf-rating-v7';
+  /* ---------- State: answers come from the app (draft or submission); the rest is this browser's ---------- */
+  const KEY = 'rf-rater-ui-v1';
   const blankStage = () => ({ t: 0, active: 0, answers: {}, sel: {}, better: '', notable: '', submitted: null, played: false });
-  const fresh = () => ({ view: 'stage', cur: 0, collapsed: false, toured: false, st: STAGES.map(blankStage) });
   function isComplete(st, n) {
     for (let pos = 0; pos < n; pos++) {
       const v = st.answers[pos];
@@ -558,68 +628,114 @@ html:has(#tour[open]) { overflow: hidden; }
     }
     return true;
   }
+  function fromApp(g) {
+    const src = g.submitted || g.draft, out = blankStage();
+    const scores = src.scores || {}, ex = src.examples || {}, cm = src.comments || {};
+    g.keys.forEach((key, pos) => {
+      if ([1, 2, 3, 4, 5].includes(scores[key])) out.answers[pos] = String(scores[key]);
+      const clean = [], seen = new Set();
+      (Array.isArray(ex[key]) ? ex[key] : []).forEach((x) => {
+        let e = null;
+        if (x && Number.isInteger(x.line) && selectable(g, x.line)) e = x.line;
+        else if (x && Array.isArray(x.clip) && x.clip.length === 2 && x.clip.every(Number.isFinite)) e = { a: x.clip[0], b: x.clip[1] };
+        if (e !== null && !seen.has(evKey(e))) { seen.add(evKey(e)); clean.push(e); }
+      });
+      out.sel[pos] = sortEv(g, clean);
+    });
+    out.better = typeof cm.better === 'string' ? cm.better : '';
+    out.notable = typeof cm.other === 'string' ? cm.other : '';
+    out.submitted = g.submitted ? g.submitted.at || 'yes' : null;
+    return out;
+  }
+  const fresh = () => ({ view: 'stage', cur: 0, collapsed: false, toured: false, st: STAGES.map(fromApp) });
+  // Where the rater was (recording, question, place in the video) is kept in this browser only.
   function normalise(raw) {
     const s = fresh();
-    if (!raw || typeof raw !== 'object') return s;
-    s.view = raw.view === 'review' ? 'review' : 'stage';
-    s.cur = [0, 1, 2, 3].includes(raw.cur) ? raw.cur : 0;
-    s.collapsed = !!raw.collapsed;
-    s.toured = !!raw.toured;
-    if (Array.isArray(raw.st)) {
-      s.st = STAGES.map((g, i) => {
-        const r = raw.st[i] && typeof raw.st[i] === 'object' ? raw.st[i] : {};
-        const n = g.items.length;
-        const out = blankStage();
-        out.t = Math.min(g.duration, Math.max(0, Number(r.t) || 0));
-        out.active = Math.min(n - 1, Math.max(0, Math.floor(Number(r.active) || 0)));
-        out.better = typeof r.better === 'string' ? r.better : '';
-        out.notable = typeof r.notable === 'string' ? r.notable : '';
-        out.submitted = typeof r.submitted === 'string' ? r.submitted : null;
-        out.played = !!r.played;
-        for (let pos = 0; pos < n; pos++) {
-          const v = r.answers && r.answers[pos];
-          if (['1', '2', '3', '4', '5'].includes(v)) out.answers[pos] = v;
-          const l = r.sel && r.sel[pos];
-          const clean = [], seen = new Set();
-          (Array.isArray(l) ? l : []).forEach((x) => {
-            let e = null;
-            if (typeof x === 'number' && Number.isInteger(x) && selectable(g, x)) e = x;
-            else if (x && typeof x === 'object' && Number.isFinite(+x.a) && Number.isFinite(+x.b)) {
-              const a = Math.max(0, Math.min(+x.a, +x.b)), b = Math.min(g.duration, Math.max(+x.a, +x.b));
-              if (b - a >= 1) e = { a: Math.round(a), b: Math.round(b) };
-            }
-            if (e !== null && !seen.has(evKey(e))) { seen.add(evKey(e)); clean.push(e); }
-          });
-          out.sel[pos] = sortEv(g, clean);
-        }
-        if (out.submitted && !isComplete(out, n)) out.submitted = null;
-        return out;
-      });
+    if (raw && typeof raw === 'object') {
+      s.collapsed = !!raw.collapsed;
+      s.toured = !!raw.toured;
+      if (raw.batch === BATCH.batch) {
+        s.view = raw.view === 'review' ? 'review' : 'stage';
+        s.cur = Number.isInteger(raw.cur) && raw.cur >= 0 && raw.cur < N ? raw.cur : 0;
+        const per = raw.st && typeof raw.st === 'object' ? raw.st : {};
+        STAGES.forEach((g, i) => {
+          const r = per[g.code];
+          if (!r || typeof r !== 'object') return;
+          s.st[i].t = Math.min(g.duration, Math.max(0, Number(r.t) || 0));
+          s.st[i].active = Math.min(g.items.length - 1, Math.max(0, Math.floor(Number(r.active) || 0)));
+          s.st[i].played = !!r.played;
+        });
+      }
     }
-    // Stages open in order, so nothing after the first unsubmitted stage can count as submitted.
+    // Recordings open in order.
     const firstOpen = s.st.findIndex((x) => !x.submitted);
-    if (firstOpen >= 0) {
-      s.st.forEach((x, i) => { if (i > firstOpen) x.submitted = null; });
-      if (s.cur > firstOpen) s.cur = firstOpen;
-    }
+    if (firstOpen >= 0 && s.cur > firstOpen) s.cur = firstOpen;
     if (s.view === 'review' && !s.st[s.cur].submitted && !isComplete(s.st[s.cur], STAGES[s.cur].items.length)) s.view = 'stage';
     return s;
   }
   let S = fresh();
-  let canStore = true;
-  try { localStorage.setItem(KEY + '-probe', '1'); localStorage.removeItem(KEY + '-probe'); } catch (e) { canStore = false; }
   let hadSaved = false;
-  try { const raw = JSON.parse(localStorage.getItem(KEY) || 'null'); hadSaved = !!raw; S = normalise(raw); } catch (e) { S = fresh(); }
+  try { const raw = JSON.parse(localStorage.getItem(KEY) || 'null'); hadSaved = !!raw; S = normalise(raw); } catch (e) { S = normalise(null); }
   if (!hadSaved && window.matchMedia && window.matchMedia('(max-width: 900px)').matches) S.collapsed = true;
-  let saveTimer = 0;
-  const writeNow = () => {
-    clearTimeout(saveTimer); saveTimer = 0;
-    if (!canStore) return;
-    try { localStorage.setItem(KEY, JSON.stringify(S)); } catch (e) { canStore = false; setSavedLine(); }
+  const uiState = () => ({
+    collapsed: S.collapsed, toured: S.toured, batch: BATCH.batch, view: S.view, cur: S.cur,
+    st: Object.fromEntries(STAGES.map((g, i) => [g.code, { t: S.st[i].t, active: S.st[i].active, played: S.st[i].played }])),
+  });
+  let uiTimer = 0;
+  const writeUI = () => { clearTimeout(uiTimer); uiTimer = 0; try { localStorage.setItem(KEY, JSON.stringify(uiState())); } catch (e) { /* a convenience only */ } };
+
+  // Answers, examples and comments as the app takes them, for one recording.
+  function payload(i) {
+    const g = STAGES[i], st = S.st[i], scores = {}, examples = {};
+    g.keys.forEach((key, pos) => {
+      if (st.answers[pos]) scores[key] = +st.answers[pos];
+      const ex = (st.sel[pos] || []).map((e) => (isRange(e) ? { clip: [e.a, e.b] } : { line: e }));
+      if (ex.length) examples[key] = ex;
+    });
+    return { scores, examples, comments: { better: st.better, other: st.notable } };
+  }
+  // The draft the app holds for each recording, so only a change is sent.
+  const sent = {};
+  STAGES.forEach((g, i) => { sent[g.code] = JSON.stringify(payload(i)); });
+  let syncTimer = 0, syncing = false, syncFailed = false;
+  async function syncDrafts() {
+    clearTimeout(syncTimer); syncTimer = 0;
+    if (syncing) { syncTimer = setTimeout(syncDrafts, 500); return; }
+    syncing = true;
+    try {
+      for (let i = 0; i < N; i++) {
+        if (S.st[i].submitted) continue;
+        const code = STAGES[i].code, body = JSON.stringify(payload(i));
+        if (body === sent[code]) continue;
+        await api('PUT', '/api/rate/' + encodeURIComponent(code) + '/draft', JSON.parse(body));
+        sent[code] = body;
+      }
+      syncFailed = false;
+    } catch (e) {
+      syncFailed = true;
+      syncTimer = setTimeout(syncDrafts, 5000);
+    }
+    syncing = false;
+    setSavedLine();
+  }
+  const save = () => {
+    clearTimeout(uiTimer); uiTimer = setTimeout(writeUI, 250);
+    if (!syncTimer) syncTimer = setTimeout(syncDrafts, 800);
   };
-  const save = () => { clearTimeout(saveTimer); saveTimer = setTimeout(writeNow, 250); };
-  window.addEventListener('pagehide', writeNow);
-  document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'hidden') writeNow(); });
+  // Leaving the page: what hasn't reached the app yet goes with the browser's keepalive.
+  function flush() {
+    writeUI();
+    STAGES.forEach((g, i) => {
+      const body = JSON.stringify(payload(i));
+      if (S.st[i].submitted || body === sent[g.code]) return;
+      try {
+        fetch('/api/rate/' + encodeURIComponent(g.code) + '/draft', { method: 'PUT', keepalive: true, credentials: 'same-origin', headers: { 'Content-Type': 'application/json' }, body });
+        sent[g.code] = body;
+      } catch (e) { /* the next visit has the last draft that arrived */ }
+    });
+  }
+  window.addEventListener('pagehide', flush);
+  document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'hidden') flush(); });
 
   let playing = false;
   let pending = null; // a clip being marked: { pos, a }
@@ -634,7 +750,6 @@ html:has(#tour[open]) { overflow: hidden; }
   const NQ = () => G().items.length;
 
   /* ---------- Helpers ---------- */
-  const $ = (id) => document.getElementById(id);
   const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
   const fmt = (sec) => { sec = Math.max(0, Math.floor(sec)); return Math.floor(sec / 60) + ':' + String(sec % 60).padStart(2, '0'); };
   const motionOK = () => !(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches);
@@ -672,8 +787,8 @@ html:has(#tour[open]) { overflow: hidden; }
   }
   function setSavedLine() {
     const el = $('saved');
-    el.textContent = canStore ? 'Your answers are saved in this browser.' : "This browser can't save your answers. Keep this page open until you have your completion code.";
-    el.classList.toggle('warn', !canStore);
+    el.textContent = syncFailed ? "Your latest answers aren't saved yet. Check your connection; this page keeps trying." : 'Your answers are saved as you go.';
+    el.classList.toggle('warn', syncFailed);
   }
 
   /* ---------- Side menu ---------- */
@@ -699,10 +814,10 @@ html:has(#tour[open]) { overflow: hidden; }
     code.dataset.state = state;
     code.className = 'nav-code' + (allDone() ? ' ready' : '');
     if (allDone()) {
-      code.innerHTML = `<span>All 4 recordings are done. Your completion code:</span><span class="code" id="nav-code-text">${COMPLETION_CODE}</span><button class="btn small" type="button" id="nav-copy">Copy code</button><span>Paste it into CloudResearch Connect to finish.</span><span class="copy-help" id="nav-copy-help" hidden></span>`;
+      code.innerHTML = `<span>${allDoneTitle()}. Your completion code:</span><span class="code" id="nav-code-text">${COMPLETION_CODE}</span><button class="btn small" type="button" id="nav-copy">Copy code</button><span>Paste it into CloudResearch Connect to finish.</span><span class="copy-help" id="nav-copy-help" hidden></span>`;
       $('nav-copy').addEventListener('click', (ev) => copyCode(ev.currentTarget, $('nav-code-text'), $('nav-copy-help')));
     } else {
-      code.textContent = 'Your completion code appears here after recording 4.';
+      code.textContent = N > 1 ? `Your completion code appears here after recording ${N}.` : 'Your completion code appears here after you submit.';
     }
   }
   $('nav-list').addEventListener('click', (e) => { const b = e.target.closest('.nav-item'); if (b) openStage(+b.dataset.i); });
@@ -749,7 +864,7 @@ html:has(#tour[open]) { overflow: hidden; }
   /* ---------- Stage ---------- */
   function renderStage() {
     const g = G(), st = T(), i = S.cur;
-    $('enc-h').innerHTML = `Recording ${i + 1} <span class="of">of 4</span>`;
+    $('enc-h').innerHTML = `Recording ${i + 1}${ofN()}`;
     const mins = Math.max(1, Math.round(g.duration / 60));
     $('how').textContent = g.convs.length > 1
       ? `Press Play to watch ${g.convs.length === 2 ? 'two' : g.convs.length} short conversations (${mins} minutes in all), then answer the questions.`
@@ -757,8 +872,9 @@ html:has(#tour[open]) { overflow: hidden; }
     $('how').hidden = !!st.played;
     $('play').classList.toggle('primary', !st.played);
     setPlayUI();
-    track.setAttribute('aria-valuemax', String(g.duration));
-    $('marks').innerHTML = g.turns.map((tu) => (tu.s === 'P' ? `<span class="mark" style="left:${pct(tu.t)}"></span>` : '')).join('');
+    track.setAttribute('aria-valuemax', String(Math.round(g.duration)));
+    $('marks').innerHTML = marksHtml();
+    loadMedia();
     $('q-total').textContent = String(NQ());
     pending = null; tip('');
     renderTranscript(); renderItems();
@@ -957,10 +1073,43 @@ html:has(#tour[open]) { overflow: hidden; }
     updateClipUI(); updateRows();
   }
 
-  /* ---------- Player (simulated clock) ---------- */
-  let lastNow = -2, lastFrame = 0, raf = 0;
+  /* ---------- Player: the recording, streamed by the app ---------- */
+  const media = $('media');
+  let lastNow = -2, raf = 0, loadedCode = null, fixingLength = false;
+  function screenMsg(text) { const el = $('screen-msg'); el.textContent = text || ''; el.hidden = !text; }
+  const marksHtml = () => G().turns.map((tu) => (tu.s === 'P' ? `<span class="mark" style="left:${pct(tu.t)}"></span>` : '')).join('');
+  function loadMedia() {
+    const g = G();
+    $('screen').classList.toggle('audio', !g.media || g.media.kind === 'audio');
+    $('play').disabled = !g.media;
+    if (loadedCode === g.code) return;
+    loadedCode = g.code; fixingLength = false;
+    media.pause();
+    screenMsg(g.media ? '' : 'There is no recording of this conversation. Answer from the transcript.');
+    if (g.media) media.src = g.media.url; else media.removeAttribute('src');
+    media.load();
+  }
+  // A recording made in the browser often doesn't say how long it is; seeking past the end makes the browser find out.
+  media.addEventListener('loadedmetadata', () => {
+    if (Number.isFinite(media.duration)) { gotLength(); return; }
+    fixingLength = true;
+    media.currentTime = 1e101;
+  });
+  media.addEventListener('durationchange', () => {
+    if (fixingLength && Number.isFinite(media.duration)) { fixingLength = false; gotLength(); }
+  });
+  function gotLength() {
+    const g = G();
+    if (media.duration > 0 && Number.isFinite(media.duration)) g.duration = media.duration;
+    T().t = Math.min(T().t, g.duration);
+    media.currentTime = T().t;
+    track.setAttribute('aria-valuemax', String(Math.round(g.duration)));
+    $('marks').innerHTML = marksHtml();
+    renderBands(); tick(true, false);
+  }
   function seek(t) {
     T().t = Math.min(G().duration, Math.max(0, t)); save();
+    if (G().media && !fixingLength && media.readyState >= 1) media.currentTime = T().t;
     if ($('clip-tip').classList.contains('warn') && !pending) tip('');
     tick(true, true);
   }
@@ -970,28 +1119,44 @@ html:has(#tour[open]) { overflow: hidden; }
     $('screen').classList.toggle('playing', playing);
   }
   function play() {
-    const st = T();
-    if (st.t >= G().duration - 0.05) {
+    const st = T(), g = G();
+    if (!g.media) return;
+    if (st.t >= g.duration - 0.05) {
       if (pending) return; // never wrap round to 0:00 in the middle of a clip
-      st.t = 0;
+      seek(0);
     }
     const first = !st.played;
     playing = true; st.played = true; save();
     if (first) { $('how').hidden = true; $('play').classList.remove('primary'); renderNav(); fit(); }
-    setPlayUI();
-    lastFrame = 0; cancelAnimationFrame(raf); raf = requestAnimationFrame(loop);
+    setPlayUI(); screenMsg('');
+    const started = media.play();
+    if (started && started.catch) {
+      started.catch((err) => {
+        if (err && err.name === 'AbortError') return; // paused before it started
+        playing = false; setPlayUI();
+        screenMsg("The recording didn't start. Press Play to try again.");
+      });
+    }
+    cancelAnimationFrame(raf); raf = requestAnimationFrame(loop);
   }
-  function pause() { playing = false; cancelAnimationFrame(raf); setPlayUI(); save(); }
+  function pause() { playing = false; media.pause(); cancelAnimationFrame(raf); setPlayUI(); save(); }
   const toggle = () => (playing ? pause() : play());
-  function loop(now) {
+  function loop() {
     if (!playing) return;
-    if (!lastFrame) lastFrame = now;
-    const dt = Math.max(0, Math.min(0.25, (now - lastFrame) / 1000)); lastFrame = now;
-    T().t += dt;
-    if (T().t >= G().duration) { T().t = G().duration; pause(); if (pending) { tick(true, true); finishClip(); return; } }
+    T().t = Math.min(G().duration, media.currentTime);
     tick(false, true);
-    if (playing) raf = requestAnimationFrame(loop);
+    raf = requestAnimationFrame(loop);
   }
+  media.addEventListener('ended', () => {
+    if (fixingLength) return;
+    T().t = G().duration; pause(); tick(true, true);
+    if (pending) finishClip();
+  });
+  media.addEventListener('error', () => {
+    if (!G().media || !media.getAttribute('src')) return;
+    playing = false; setPlayUI();
+    screenMsg("The recording couldn't be loaded. Reload the page to try again.");
+  });
   function tick(force, follow) {
     const g = G(), t = T().t;
     $('clock').textContent = fmt(t) + ' / ' + fmt(g.duration);
@@ -1034,8 +1199,8 @@ html:has(#tour[open]) { overflow: hidden; }
 
   /* ---------- Questions: one open at a time ---------- */
   function renderItems() {
-    const g = G(), st = T(), order = ORDERS[S.cur];
-    $('items').innerHTML = order.map((bank, pos) => {
+    const g = G(), st = T();
+    $('items').innerHTML = order().map((bank, pos) => {
       const q = esc(g.items[bank]);
       const opts = [1, 2, 3, 4, 5].map((v) => `<label class="opt"><input type="radio" name="s${pos}" value="${v}"${st.answers[pos] === String(v) ? ' checked' : ''}><span><b>${v}</b> <i>${ANCHORS[v]}</i></span></label>`).join('');
       return `<div class="item" id="item-${pos}" data-pos="${pos}"><h3 class="q-h"><button type="button" class="q-head" id="qh-${pos}" aria-expanded="false" aria-controls="body-${pos}"><span class="n">${pos + 1}</span><span class="qt">${q}</span><span class="sum" id="sum-${pos}"></span></button></h3><div class="q-body" id="body-${pos}" hidden><fieldset class="opts"><legend class="sr">Question ${pos + 1}: ${q}</legend>${opts}</fieldset><div class="why-box" id="why-${pos}"></div></div></div>`;
@@ -1163,7 +1328,7 @@ html:has(#tour[open]) { overflow: hidden; }
 
   /* ---------- Review, submit and after ---------- */
   function renderReview() {
-    const g = G(), st = T(), i = S.cur, order = ORDERS[S.cur];
+    const g = G(), st = T(), i = S.cur;
     const mode = !st.submitted ? 'review' : reviewMode === 'next' || reviewMode === 'alldone' ? reviewMode : 'submitted';
     const listed = mode === 'review' || mode === 'submitted';
     $('rv-intro').hidden = !listed;
@@ -1173,15 +1338,16 @@ html:has(#tour[open]) { overflow: hidden; }
     $('rv-foot').hidden = !listed;
     $('rv-submit').hidden = mode !== 'review';
     $('rv-done').innerHTML = '';
+    $('rv-error').hidden = true;
     if (mode === 'review') {
-      $('rv-h').innerHTML = `Recording ${i + 1} <span class="of">of 4</span>: check your answers`;
+      $('rv-h').innerHTML = `Recording ${i + 1}${ofN()}: check your answers`;
       $('rv-intro').textContent = "When they look right, press Submit answers at the bottom. You can't change them after you submit.";
       $('better').value = st.better; $('notable').value = st.notable;
       $('rv-back').innerHTML = ICON.back + `<span>Back to recording ${i + 1}</span>`;
       $('rv-back').dataset.go = 'stage';
       $('rv-submit').textContent = 'Submit answers';
     } else if (mode === 'submitted') {
-      $('rv-h').innerHTML = `Recording ${i + 1} <span class="of">of 4</span>: your answers`;
+      $('rv-h').innerHTML = `Recording ${i + 1}${ofN()}: your answers`;
       $('rv-intro').textContent = 'You submitted these answers.';
       const said = [['What could the participant have done better?', st.better], ['Anything else you noticed?', st.notable]].filter((x) => x[1] && x[1].trim());
       if (said.length) { $('rv-read').innerHTML = `<h2>Your comments</h2><dl>${said.map(([q, a]) => `<dt>${q}</dt><dd>${esc(a)}</dd>`).join('')}</dl>`; $('rv-read').hidden = false; }
@@ -1194,12 +1360,13 @@ html:has(#tour[open]) { overflow: hidden; }
       $('rv-done').innerHTML = `<div class="card done-card"><p>Recording ${j + 1} is open.</p><button class="btn primary" type="button" id="rv-next" data-i="${j}">Go to recording ${j + 1}</button></div>`;
       $('rv-next').addEventListener('click', (ev) => openStage(+ev.currentTarget.dataset.i));
     } else {
-      $('rv-h').textContent = 'All 4 recordings are done';
-      $('rv-done').innerHTML = `<div class="card done-card"><p>Your completion code:</p><div class="code-row"><span class="code" id="rvdone-code">${COMPLETION_CODE}</span><button class="btn" type="button" id="rvdone-copy">Copy code</button></div><p>Paste it into CloudResearch Connect to finish.</p><p class="copy-help" id="rvdone-help" hidden></p></div>`;
+      $('rv-h').textContent = allDoneTitle();
+      $('rv-done').innerHTML = `<div class="card done-card"><p>Your completion code:</p><div class="code-row"><span class="code" id="rvdone-code">${COMPLETION_CODE}</span><button class="btn" type="button" id="rvdone-copy">Copy code</button></div><p>Paste it into CloudResearch Connect to finish.</p><p class="copy-help" id="rvdone-help" hidden></p></div><div class="card done-card"><p>Have time for more? You can rate another set of recordings.</p><button class="btn" type="button" id="rv-more">Rate more recordings</button><p class="err" id="rv-more-err" role="alert" hidden></p></div>`;
       $('rvdone-copy').addEventListener('click', (ev) => copyCode(ev.currentTarget, $('rvdone-code'), $('rvdone-help')));
+      $('rv-more').addEventListener('click', moreRecordings);
     }
     if (!listed) return;
-    $('rv-list').innerHTML = order.map((bank, pos) => {
+    $('rv-list').innerHTML = order().map((bank, pos) => {
       const v = st.answers[pos], list = st.sel[pos] || [];
       const ex = list.length
         ? `<ul class="ex">${list.map((e) => `<li><span class="t mono">${evLabel(g, e)}</span><span>${esc(evText(g, e))}</span></li>`).join('')}</ul>`
@@ -1219,23 +1386,46 @@ html:has(#tour[open]) { overflow: hidden; }
     if (go === 'code') { S.cur = STAGES.length - 1; reviewMode = 'alldone'; renderStage(); showView('review', true); return; }
     openStage(+go);
   });
-  $('rv-submit').addEventListener('click', () => {
-    const st = T(), i = S.cur;
-    if (st.submitted) return;
+  let submitting = false;
+  function submitError(text) { const el = $('rv-error'); el.textContent = text || ''; el.hidden = !text; }
+  $('rv-submit').addEventListener('click', async () => {
+    const st = T(), i = S.cur, btn = $('rv-submit');
+    if (st.submitted || submitting) return;
     const left = incomplete();
     if (left.length) { showView('stage'); focusItem(left[0][0]); return; }
     st.better = $('better').value; st.notable = $('notable').value;
-    st.submitted = today(); writeNow();
+    submitting = true; btn.disabled = true; btn.textContent = 'Submitting…'; submitError('');
+    let res;
+    try {
+      res = await api('POST', '/api/rate/' + encodeURIComponent(G().code) + '/submit', payload(i));
+    } catch (e) {
+      submitting = false; btn.disabled = false; btn.textContent = 'Submit answers';
+      const msg = `Your answers weren't submitted. ${e.message} Press Submit answers to try again.`;
+      submitError(msg); announce(msg);
+      return;
+    }
+    submitting = false; btn.disabled = false; btn.textContent = 'Submit answers';
+    st.submitted = today(); sent[G().code] = JSON.stringify(payload(i)); writeUI();
+    if (res.completion_code) COMPLETION_CODE = res.completion_code;
     reviewMode = allDone() ? 'alldone' : 'next';
     renderNav(); renderReview();
     if (allDone()) {
       $('rvdone-copy').focus();
-      announce('All 4 recordings are done. Your completion code is ' + COMPLETION_CODE.split('').join(' ') + '.');
+      announce(allDoneTitle() + '. Your completion code is ' + COMPLETION_CODE.split('').join(' ') + '.');
     } else {
       $('rv-next').focus();
       announce(`Your answers for recording ${i + 1} are submitted. Recording ${nextOpenStage() + 1} is open.`);
     }
   });
+
+  // Another batch, once this one is done: the app picks it, and the page starts over on it.
+  async function moreRecordings() {
+    const btn = $('rv-more'), err = $('rv-more-err');
+    btn.disabled = true; err.hidden = true;
+    try { await api('POST', '/api/batch'); location.reload(); } catch (e) {
+      btn.disabled = false; err.textContent = e.message; err.hidden = false; announce(e.message);
+    }
+  }
 
   /* ---------- Keyboard (no hints shown; for fast raters) ---------- */
   document.addEventListener('keydown', (e) => {
@@ -1272,11 +1462,11 @@ html:has(#tour[open]) { overflow: hidden; }
 
   /* ---------- First-run tour: five short steps that point at the real screen ---------- */
   const TOUR = [
-    { target: '.player', title: 'Watch the conversation', body: "You'll rate four recordings, one at a time. Press Play or click the video to start. The diamonds on the bar show each time the participant speaks. Click one, or anywhere on the bar, to jump there." },
+    { target: '.player', title: 'Watch the conversation', body: (N > 1 ? `You'll rate ${WORDS[N] || N} recordings, one at a time. ` : '') + "Press Play or click the video to start. The diamonds on the bar show each time the participant speaks. Click one, or anywhere on the bar, to jump there." },
     { target: '.transcript', title: 'Follow along in the transcript', body: "Every line appears here with the time it was said. Click a time to play from that line. The participant is the person you're rating, and the other speakers are characters." },
     { target: '#items', title: 'Answer one question at a time', body: 'Pick how often the participant did each thing, from 1 (Never) to 5 (Consistently). When a question is done, press Next question.' },
     { target: '.watch', title: 'Add an example for scores of 2 to 5', body: "Once you pick 2 to 5, show where you saw it. Press Add next to something the participant said. If it's more about how they said it, like their tone or a pause, go to where the moment starts, press Add a video clip, then End clip.", demo: true },
-    { target: '.submit-row', title: 'Review, then submit', body: 'When every question has a score and the examples it needs, press Review answers to check your work before you submit. Recordings open one at a time, and your completion code appears after recording 4.' },
+    { target: '.submit-row', title: 'Review, then submit', body: 'When every question has a score and the examples it needs, press Review answers to check your work before you submit. ' + (N > 1 ? `Recordings open one at a time, and your completion code appears after recording ${N}.` : 'Your completion code appears after you submit.') },
   ];
   const tour = $('tour');
   let tourStep = 0;
