@@ -38,3 +38,21 @@ def test_keys_and_labels_match_step1_scenarios():
         assert set(ours[c]) == set(theirs[c]), c
         for k, label in ours[c].items():
             assert label == theirs[c][k].replace(" (R)", ""), (c, k)
+
+
+def test_scenario_construct():
+    assert items.construct_for_scenario("S1A") == "conflict_management"
+    assert items.construct_for_scenario("S4B") == "teamwork"
+    for bad in (None, "", "S5A", "missed_deadlines", "S1"):
+        assert items.construct_for_scenario(bad) is None
+    assert [r["key"] for r in items.construct_items("influence")] == [k for k, _, _ in items.ITEMS["influence"]]
+
+
+def test_scenario_construct_matches_step1_scenarios():
+    yaml = pytest.importorskip("yaml")
+    specs = sorted((OLD_REPO / "scenarios" / "v3").glob("*.yaml"))
+    if not specs:
+        pytest.skip(f"step 1 scenarios not at {OLD_REPO}")
+    for p in specs:
+        d = yaml.safe_load(p.read_text(encoding="utf-8"))
+        assert items.construct_for_scenario(d["id"]) == d["construct"], p.name
