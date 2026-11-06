@@ -69,7 +69,7 @@ The gaps:
    Without `DescribeImages`, the workflow's existence probe refuses to build rather than guess.
 4. **Check before the first apply; don't assume:**
    - Does the state bucket have a bucket policy that limits object keys? Read-only check: `aws s3api get-bucket-policy --bucket relational-fluency-tfstate-540586745717`. If it does, add `rater/*`.
-   - Does step 1's KMS key policy delegate to IAM? The Terraform default does, and if so the task role's `kms:Decrypt` grant is enough. Check with `aws kms get-key-policy --key-id alias/relational-fluency-study --policy-name default`. If the policy does not include the account root principal, step 1's key policy needs to allow `relational-fluency-rater-task`, which is a change in step 1's stack.
+   - Does step 1's KMS key policy delegate to IAM? The Terraform default does, and if so the task role's `kms:Decrypt` grant is enough. Check with `aws kms get-key-policy --policy-name default --key-id "$(aws kms describe-key --key-id alias/relational-fluency-study --query KeyMetadata.KeyId --output text)"` (`get-key-policy` takes a key id, not an alias). If the policy does not include the account root principal, step 1's key policy needs to allow `relational-fluency-rater-task`, which is a change in step 1's stack.
 
 ## First deploy
 

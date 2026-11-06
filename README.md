@@ -14,7 +14,7 @@ flowchart LR
   R[Researcher] -->|researcher key: create raters, assign, export| S
 ```
 
-- **Pages:** [`static/`](static/): the rater's queue (`queue.html`) and rating screen (`rate.html`), plus the sign-in and the earlier Qualtrics entry pages. These are plain HTML on step 1's theme ([`static/theme.css`](static/theme.css), taken from step 1's participant page). The Inter font is self-hosted, and the Content-Security-Policy is `default-src 'self'`, so a page contacts no other site.
+- **Pages:** [`static/`](static/): the rater sign-in notice (`rater-signin.html`) and the earlier Qualtrics entry pages. The rater's queue and rating screen are the UI prototype, [`prototype/rater-ui.html`](prototype/rater-ui.html), which still runs on example data and is not yet connected to `/api/queue` and `/api/rate/<code>`; until it is, `/rate` and `/rate/<code>` show a notice. These are plain HTML on step 1's theme ([`static/theme.css`](static/theme.css), taken from step 1's participant page). The Inter font is self-hosted, and the Content-Security-Policy is `default-src 'self'`, so a page contacts no other site.
 - **App server:** [`server/`](server/) (FastAPI), run with `python -m server.app`.
   - [`server/conventions.py`](server/conventions.py): step 1's participant-key, cohort and session-id rules, copied from step 1 and parity-tested against it.
   - [`server/source.py`](server/source.py): reads step 1's data. It has no write path.

@@ -407,15 +407,26 @@ def _assignment_or_404(rater_id: str, code: str) -> Dict[str, Any]:
 
 _NO_STORE = {"Cache-Control": "no-store", "X-Robots-Tag": "noindex"}
 
+# The rater's queue and rating screen are the UI prototype
+# (prototype/rater-ui.html), which is not yet connected to /api/queue and
+# /api/rate/<code>. Until it is, the two page routes keep their sign-in and
+# assignment checks and answer with this notice.
+_SCREEN_PENDING = "The rating screen is not connected yet. Your sign-in worked."
+
+
+def _rater_notice(heading: str, message: str, status_code: int = 200) -> HTMLResponse:
+    return HTMLResponse(_page("rater-signin.html", heading=html.escape(heading),
+                              message=html.escape(message)),
+                        status_code=status_code, headers=_NO_STORE)
+
 
 @app.get("/rate", response_class=HTMLResponse)
 def rate_home(request: Request, token: Optional[str] = Query(None)):
     if token:
         rater = _rating.rater_for_token(_store.get_store(), token)
         if rater is None:
-            return HTMLResponse(_page("rater-signin.html", message=html.escape(
-                "That link is not valid. Ask the study team for a new one.")),
-                status_code=401, headers=_NO_STORE)
+            return _rater_notice("Rater sign-in",
+                                 "That link is not valid. Ask the study team for a new one.", 401)
         resp = RedirectResponse("/rate", status_code=303)
         resp.set_cookie(_rating.COOKIE, _rating.cookie_value(rater["rater_id"], _session_secret()),
                         max_age=_rating.SESSION_SECONDS, httponly=True, samesite="lax",
@@ -423,11 +434,9 @@ def rate_home(request: Request, token: Optional[str] = Query(None)):
         return resp
     rid = _rater_from(request)
     if not rid:
-        return HTMLResponse(_page("rater-signin.html", message=html.escape(
-            "Open the link the study team gave you to see your queue.")), headers=_NO_STORE)
+        return _rater_notice("Rater sign-in", "Open the link the study team gave you to see your queue.")
     activity.touch(f"rater:{rid}")
-    return HTMLResponse(_page("queue.html", rater_id=html.escape(rid),
-                              build=html.escape(build_sha() or "")), headers=_NO_STORE)
+    return _rater_notice(f"Rater {rid}", _SCREEN_PENDING)
 
 
 @app.get("/api/queue")
@@ -445,8 +454,7 @@ def rate_page(code: str, request: Request):
         return RedirectResponse("/rate", status_code=303)
     _assignment_or_404(rid, code)
     activity.touch(f"rater:{rid}")
-    return HTMLResponse(_page("rate.html", code=html.escape(code), rater_id=html.escape(rid),
-                              build=html.escape(build_sha() or "")), headers=_NO_STORE)
+    return _rater_notice(code, _SCREEN_PENDING)
 
 
 def _transcript_rows(session_id: str) -> Dict[str, Any]:
