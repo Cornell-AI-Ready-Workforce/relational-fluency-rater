@@ -76,10 +76,12 @@ The entry follows step 1's rules:
 
 ```bash
 KEY=$(aws secretsmanager get-secret-value --secret-id relational-fluency-rater/researcher-key --query SecretString --output text)
-curl -s "https://rater.ai-ready-workforce.ai.cornell.edu/api/entries?key=$KEY&cohort=study"
-curl -s "https://rater.ai-ready-workforce.ai.cornell.edu/api/step1/participants/PARTICIPANT_KEY/encounters?key=$KEY"
+curl -s -H "X-Researcher-Key: $KEY" "https://rater.ai-ready-workforce.ai.cornell.edu/api/entries?cohort=study"
+curl -s -H "X-Researcher-Key: $KEY" "https://rater.ai-ready-workforce.ai.cornell.edu/api/step1/participants/PARTICIPANT_KEY/encounters"
 aws s3 ls s3://relational-fluency-rater-study-data/entries/
 ```
+
+**Send the key as the `X-Researcher-Key` header, not `?key=`.** A URL ends up in shell history, browser history and request logs; a header does not. `?key=` still works, and the access log drops every query value whatever its name (`server/logsafe.py`), so `/api/entries?key=...&cohort=study` is logged as `/api/entries?key=[removed]&cohort=[removed]`. The same rule keeps a rater's sign-in token (`/rate?token=`) out of the log.
 
 Every record is JSON containing:
 - `step1`: `participant_key`, `session_ids`, `run_id`, `run_ids`

@@ -52,27 +52,29 @@ A rating is a record in `store.py`'s sense: it points back at step 1, so `/api/r
 
 ## Researcher runbook
 
-Every call takes `key=RESEARCHER_KEY`. Locally the key is whatever `.env` says (empty allows all on a loopback bind).
+Every call takes the researcher key in the `X-Researcher-Key` header. Locally the key is whatever `.env` says (empty allows all on a loopback bind). `?key=` is still accepted, but a URL lands in shell history and request logs; the access log drops query values (`server/logsafe.py`) and a header never gets there at all.
 
 ```bash
 H=https://rater.ai-ready-workforce.ai.cornell.edu   # locally: http://127.0.0.1:8766
+KEY=$(aws secretsmanager get-secret-value --secret-id relational-fluency-rater/researcher-key --query SecretString --output text)
+R=(-H "X-Researcher-Key: $KEY")
 
 # 1. Create a rater. The token is shown ONCE; send the link to the rater privately.
-curl -s -X POST "$H/api/raters?key=$KEY" -H 'Content-Type: application/json' \
+curl -s "${R[@]}" -X POST "$H/api/raters" -H 'Content-Type: application/json' \
      -d '{"rater_id": "R-07", "display_name": "Seven"}'
 
 # 2. Which encounters a participant has (session ids), then assign them.
-curl -s "$H/api/step1/participants/PARTICIPANT_KEY/encounters?key=$KEY"
-curl -s -X POST "$H/api/assignments?key=$KEY" -H 'Content-Type: application/json' \
+curl -s "${R[@]}" "$H/api/step1/participants/PARTICIPANT_KEY/encounters"
+curl -s "${R[@]}" -X POST "$H/api/assignments" -H 'Content-Type: application/json' \
      -d '{"rater_id": "R-07", "session_ids": ["s_1727000000_bbbbbb", "s_1727000001_aaaaaa"]}'
 #    -> created codes, already_assigned codes, and refused session ids with the reason
 #       (not in step 1, or no participant key: a test or recovered encounter)
 
 # 3. Progress, and the ratings so far.
-curl -s "$H/api/raters?key=$KEY"
-curl -s "$H/api/assignments?key=$KEY&rater_id=R-07"
-curl -s "$H/api/ratings?key=$KEY"                   # full records
-curl -s "$H/api/ratings?key=$KEY&format=csv"        # long format, one row per item
+curl -s "${R[@]}" "$H/api/raters"
+curl -s "${R[@]}" "$H/api/assignments?rater_id=R-07"
+curl -s "${R[@]}" "$H/api/ratings"                   # full records
+curl -s "${R[@]}" "$H/api/ratings?format=csv"        # long format, one row per item
 ```
 
 Spreading one participant's four encounters across different raters is the researcher's job when assigning; the app does not allocate.
