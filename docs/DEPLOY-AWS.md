@@ -62,7 +62,7 @@ The gaps:
 
    The change belongs in step 1's `add-deployer.sh`, then re-run for each deployer.
 3. **The GitHub OIDC role for `build-image`.** Step 1's OIDC role was made by hand and is not in its repository. Its trust policy almost certainly limits `token.actions.githubusercontent.com:sub` to `repo:Cornell-AI-Ready-Workforce/relational-fluency:*`, and its ECR rights are probably scoped to `relational-fluency/platform`. Recommended: a **new** role for this repository, set as this repo's `AWS_ROLE_ARN` secret, that can:
-   - be assumed only by `repo:Cornell-AI-Ready-Workforce/relational-fluency-rater:ref:refs/heads/main`
+   - be assumed only by `repo:Cornell-AI-Ready-Workforce@290743015/relational-fluency-rater@1421361627:ref:refs/heads/main`. This repository uses GitHub's **immutable** OIDC subject, which carries the owner and repository ids; a trust policy written for `repo:Cornell-AI-Ready-Workforce/relational-fluency-rater:...` is refused (`Not authorized to perform sts:AssumeRoleWithWebIdentity`), as the first build was on 2026-11-08. Check with `gh api repos/Cornell-AI-Ready-Workforce/relational-fluency-rater/actions/oidc/customization/sub`. Conditions on `workflow`, `ref`, `repository_id` and `repository_owner_id` work as well.
    - call `ecr:GetAuthorizationToken` on `*`
    - call `ecr:BatchCheckLayerAvailability`, `InitiateLayerUpload`, `UploadLayerPart`, `CompleteLayerUpload`, `PutImage`, `BatchGetImage` and `DescribeImages` on `arn:aws:ecr:us-east-1:540586745717:repository/relational-fluency-rater/app`
 
