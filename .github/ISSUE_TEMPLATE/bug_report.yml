@@ -1,10 +1,10 @@
 # The form testers and raters fill in when the rater app misbehaves.
 #
 # Modeled on relational-fluency's bug_report.yml, for the same reason: the
-# build tag (server/build_info.py, shown on the queue and rating pages) and the
-# time with its zone place a report against what was running. The rater app
-# has no deployed site (the stack was destroyed on 2026-11-08), so the build
-# field also takes a prototype file name.
+# build tag (server/build_info.py, shown on the rating page) and the
+# time with its zone place a report against what was running. The form names
+# no site address: the stack was destroyed on 2026-11-08 and is to be deployed
+# again (#18).
 #
 # The rating code (RC- + 10 hex digits, docs/RATING.md) is what a report names
 # instead of a session or participant: it is derived per rater, so it says
@@ -25,13 +25,12 @@ body:
   - type: input
     id: build
     attributes:
-      label: Build or file
+      label: Build
       description: >-
-        What you were testing. In the running app: the small 7-character code
-        at the bottom of the queue or rating page. In a prototype: the file
-        name, e.g. prototype/rater-ui-studio.html, and the commit if you know
-        it. Write "unknown" if you cannot tell.
-      placeholder: prototype/rater-ui-studio.html at 3e8de31
+        The small 7-character code at the bottom of the rating page. If you
+        are running the app on your own computer and the page shows none,
+        write "local". Write "unknown" if you cannot tell.
+      placeholder: cbed27e
     validations:
       required: true
   - type: dropdown
@@ -40,7 +39,7 @@ body:
       label: Where it happened
       options:
         - Opening my rater link (sign-in)
-        - The queue of recordings
+        - Getting my recordings (the batch)
         - Rating a conversation (recording, transcript, items)
         - Saving or submitting a rating
         - The tour or instructions
