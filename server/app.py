@@ -436,7 +436,8 @@ def rate_home(request: Request, token: Optional[str] = Query(None)):
     if not rid:
         return _rater_notice("Rater sign-in", "Open the link the study team gave you to start rating.")
     activity.touch(f"rater:{rid}")
-    return HTMLResponse(RATE_PAGE.read_text(encoding="utf-8"), headers=_NO_STORE)
+    page = RATE_PAGE.read_text(encoding="utf-8").replace("{{build}}", html.escape(build_sha() or ""))
+    return HTMLResponse(page, headers=_NO_STORE)
 
 
 @app.get("/api/batch")

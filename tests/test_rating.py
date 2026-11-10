@@ -127,6 +127,7 @@ def test_sign_in_serves_the_rating_screen_and_bad_token_does_not(client):
     page = client.get("/rate")
     assert page.status_code == 200 and "/api/batch" in page.text
     assert page.headers["cache-control"] == "no-store"
+    assert "{{build}}" not in page.text  # filled in, even when the build is unknown
     assert client.get("/api/batch").json() == {"rater_id": "R-07", "batch": None, "stages": [],
                                                "done": False, "completion_code": None}
 
