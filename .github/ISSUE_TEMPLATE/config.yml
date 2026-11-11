@@ -1,0 +1,4 @@
+# Blank issues stay available, as in relational-fluency: the team files design
+# and planning issues that are not bug reports. Bugs get the form
+# (bug_report.yml), which asks for the build and the rating code.
+blank_issues_enabled: true
