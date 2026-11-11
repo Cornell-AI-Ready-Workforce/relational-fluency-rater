@@ -41,9 +41,10 @@ STEP1_BUCKET = "relational-fluency-study-data"
 # entries/      the Qualtrics entry records (the participant path)
 # raters/       who may rate, and the digest of their link token
 # assignments/  rating code -> step 1 encounter, per rater
+# slots/        how many raters each step 1 encounter has been given to
 # drafts/       a rater's autosaved answers, overwritten as they go
 # ratings/      submissions, written once                   (server/rating.py)
-WRITE_PREFIXES = ("entries/", "raters/", "assignments/", "drafts/", "ratings/")
+WRITE_PREFIXES = ("entries/", "raters/", "assignments/", "slots/", "drafts/", "ratings/")
 SCHEMA_VERSION = 1
 
 

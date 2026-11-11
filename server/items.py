@@ -1,4 +1,4 @@
-"""The instrument: the 21 ESCI items a rater scores on every encounter.
+"""The instrument: the 21 ESCI items, five or six per construct.
 
 Copied from step 1's scenario bank (relational-fluency scenarios/v3/*.yaml,
 each form's `esci_items`), keyed exactly as there, because the analysis
@@ -7,18 +7,21 @@ loader fills that table from the same YAML. A key that differs here is a rating
 no foreign key accepts. tests/test_items.py compares this table with the YAML
 when step 1 is checked out beside this repository.
 
-EVERY ITEM ON EVERY ENCOUNTER. Showing only the construct's five items would
-tell the rater which competency the scenario targets, which is the one thing
-the rating must be blind to. So a rater scores all 21 on each encounter, in an
-order fixed per rater and encounter (server/rating.py), and "N/A" is the answer
-for an item the conversation gave no chance to show.
+THE ENCOUNTER'S OWN ITEMS. The rating screen (the UI prototype, connected
+2026-11-05) asks about the five or six items of the construct the encounter's
+scenario targets, as the prototype was designed, in an order fixed per rater
+and encounter (server/rating.py). This tells the rater which competency is
+being rated; the participant, the scenario and the characters stay hidden.
+Step 1's scenario ids are S<n><form>, and the number is the construct
+(scenarios/v3/*.yaml `construct`), so SCENARIO_CONSTRUCT maps one to the other.
 
 Labels are the instrument's words with the reverse-key marker "(R)" removed
 from what the rater sees; `reverse_keyed` keeps the fact for scoring.
 """
 from __future__ import annotations
 
-from typing import Dict, List, Tuple
+import re
+from typing import Dict, List, Optional, Tuple
 
 # construct -> [(item_key, label, reverse_keyed)]
 ITEMS: Dict[str, List[Tuple[str, str, bool]]] = {
@@ -53,12 +56,13 @@ ITEMS: Dict[str, List[Tuple[str, str, bool]]] = {
     ],
 }
 
-# The frequency scale, as the instrument has it; "na" is this app's own answer
-# for "no chance to show it", kept apart from 1 (had the chance, did not).
+# The frequency scale, as the instrument has it.
 SCALE: List[Tuple[int, str]] = [(1, "Never"), (2, "Rarely"), (3, "Sometimes"), (4, "Often"),
                                 (5, "Consistently")]
-NA = "na"
-NA_LABEL = "N/A: no chance to show it"
+
+SCENARIO_CONSTRUCT: Dict[str, str] = {"S1": "conflict_management", "S2": "influence",
+                                      "S3": "inspirational_leadership", "S4": "teamwork"}
+_SCENARIO_RE = re.compile(r"(S[1-4])[A-Z]")
 
 
 def all_items() -> List[Dict[str, object]]:
@@ -70,3 +74,14 @@ def all_items() -> List[Dict[str, object]]:
 def item_keys() -> Dict[str, str]:
     """item_key -> construct, for validating a submission."""
     return {k: c for c, rows in ITEMS.items() for k, _, _ in rows}
+
+
+def construct_for_scenario(scenario: Optional[str]) -> Optional[str]:
+    """The construct a step 1 scenario id (S1A, S4B, ...) targets, or None."""
+    m = _SCENARIO_RE.fullmatch(scenario or "")
+    return SCENARIO_CONSTRUCT[m.group(1)] if m else None
+
+
+def construct_items(construct: str) -> List[Dict[str, str]]:
+    """One construct's items, in the instrument's order."""
+    return [{"key": k, "label": label} for k, label, _ in ITEMS.get(construct, [])]
