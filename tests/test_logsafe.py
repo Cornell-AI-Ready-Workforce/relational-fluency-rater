@@ -122,7 +122,7 @@ def client(monkeypatch):
     return TestClient(appmod.app, base_url="http://127.0.0.1", follow_redirects=False)
 
 
-@pytest.mark.parametrize("path", ["/api/raters", "/api/assignments", "/api/entries", "/api/ratings"])
+@pytest.mark.parametrize("path", ["/api/raters", "/api/assignments", "/api/coverage", "/api/entries", "/api/ratings"])
 def test_every_researcher_route_takes_the_header(client, path):
     assert client.get(path, headers={"X-Researcher-Key": RK}).status_code == 200
     assert client.get(path, headers={"X-Researcher-Key": "wrong"}).status_code == 401

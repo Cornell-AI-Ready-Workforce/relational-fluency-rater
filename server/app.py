@@ -28,7 +28,6 @@ from fastapi.staticfiles import StaticFiles
 from starlette.concurrency import run_in_threadpool
 from uvicorn.middleware.proxy_headers import ProxyHeadersMiddleware
 
-from . import items as _items
 from . import logsafe as _logsafe
 from . import rating as _rating
 from . import source as _source
@@ -382,14 +381,16 @@ def api_step1_encounters(participant_key: str, key: Optional[str] = Depends(rese
 
 
 
-# --- raters: sign-in, queue, rating screen ---------------------------------------------
+# --- raters: sign-in, batches, rating screen ---------------------------------------------
 #
 # Step 2's task (decided 2026-10-22): trained team raters score step 1's
 # encounters. A researcher creates a rater (POST /api/raters) and hands them the
 # one-time link it returns; opening it sets the session cookie and redirects to
-# /rate, so the token leaves the address bar. Everything rater-facing is then
-# keyed by that cookie and by RATING CODES, never by step 1's ids
-# (server/rating.py says what a rater may and may not see).
+# /rate, so the token leaves the address bar. The rating screen then asks for a
+# batch (POST /api/batch): four recordings the app picks (server/rating.py
+# allocate_batch). Everything rater-facing is keyed by the cookie and by RATING
+# CODES, never by step 1's ids (server/rating.py says what a rater may and may
+# not see).
 
 _SESSION_SECRET_FALLBACK = secrets.token_bytes(32)  # local only: sessions end with the process
 
@@ -423,10 +424,10 @@ def _assignment_or_404(rater_id: str, code: str) -> Dict[str, Any]:
 
 _NO_STORE = {"Cache-Control": "no-store", "X-Robots-Tag": "noindex"}
 
-# The rater's queue and rating screen are static/queue.html and
-# static/rate.html, plain pages on step 1's theme that call /api/queue and
-# /api/rate/<code>. The richer UI prototype (prototype/rater-ui.html) can take
-# their place by calling the same routes.
+# The rating screen: the UI prototype, now fed by /api/batch and /api/rate/<code>.
+# It has its own design rather than theme.css (tests/test_rater_page.py), and
+# is served only to a signed-in rater.
+RATE_PAGE = STATIC_DIR / "rater" / "rate.html"
 
 
 def _rater_notice(heading: str, message: str, status_code: int = 200) -> HTMLResponse:
@@ -449,54 +450,95 @@ def rate_home(request: Request, token: Optional[str] = Query(None)):
         return resp
     rid = _rater_from(request)
     if not rid:
-        return _rater_notice("Rater sign-in", "Open the link the study team gave you to see your queue.")
+        return _rater_notice("Rater sign-in", "Open the link the study team gave you to start rating.")
     activity.touch(f"rater:{rid}")
-    return HTMLResponse(_page("queue.html", rater_id=html.escape(rid),
-                              build=html.escape(build_sha() or "")), headers=_NO_STORE)
+    page = RATE_PAGE.read_text(encoding="utf-8").replace("{{build}}", html.escape(build_sha() or ""))
+    return HTMLResponse(page, headers=_NO_STORE)
 
 
-@app.get("/api/queue")
-def api_queue(request: Request) -> dict:
+@app.get("/api/batch")
+def api_batch(request: Request) -> dict:
+    """The rater's latest batch of recordings, or batch: null before the first."""
     rid = _require_rater(request)
-    rows = _rating.queue_view(_rating.list_assignments(_store.get_store(), rid))
-    return {"rater_id": rid, "queue": rows, "done": sum(r["status"] == "done" for r in rows),
-            "total": len(rows)}
+    stages = _rating.current_batch(_rating.list_assignments(_store.get_store(), rid))
+    return {"rater_id": rid, **_rating.batch_view(stages)}
 
 
-@app.get("/rate/{code}", response_class=HTMLResponse)
-def rate_page(code: str, request: Request):
-    rid = _rater_from(request)
-    if not rid:
-        return RedirectResponse("/rate", status_code=303)
-    _assignment_or_404(rid, code)
-    activity.touch(f"rater:{rid}")
-    return HTMLResponse(_page("rate.html", code=html.escape(code), rater_id=html.escape(rid),
-                              build=html.escape(build_sha() or "")), headers=_NO_STORE)
+@app.post("/api/batch")
+def api_batch_new(request: Request) -> dict:
+    """The rater's open batch, or a new one when the last is done (or there is none)."""
+    rid = _require_rater(request)
+    try:
+        stages = _rating.allocate_batch(_store.get_store(), _source.get_source(), rid)
+    except _rating.NoWork as exc:
+        raise HTTPException(status_code=409, detail=str(exc))
+    except Exception as exc:  # step 1 unreachable: say so, nothing else
+        print(f"  ERROR: could not give {rid} a batch: {type(exc).__name__}: {exc}")
+        raise HTTPException(status_code=503, detail="Recordings are unavailable right now; try again shortly.")
+    return {"rater_id": rid, **_rating.batch_view(stages)}
 
 
 def _transcript_rows(session_id: str) -> Dict[str, Any]:
-    """Turns as the rater sees them: time, Participant or Character n, text."""
+    """Turns as the rater sees them: time, Participant or Character n, text,
+    which conversation of the encounter (part) and a note for a cut-off line."""
     src = _source.get_source()
     rec = src.record(session_id) or {}
+    turns = [t for t in (rec.get("transcript") or []) if isinstance(t, dict)]
     cast = [c.get("id") for c in (rec.get("cast") or []) if isinstance(c, dict)]
-    label: Dict[str, str] = {}
-    for turn in rec.get("transcript") or []:
+    for turn in turns:
         aid = turn.get("agent_id")
-        if turn.get("role") not in ("participant", "user") and aid and aid not in label:
-            if aid not in cast:
-                cast.append(aid)
-    for i, aid in enumerate(cast, 1):
-        label[aid] = f"Character {i}" if len(cast) > 1 else "Character"
+        if turn.get("role") not in ("participant", "user") and aid and aid not in cast:
+            cast.append(aid)
+    label = {aid: (f"Character {i}" if len(cast) > 1 else "Character") for i, aid in enumerate(cast, 1)}
+    # An encounter can be more than one conversation (talk to one character,
+    # then another); step 1 notes when each began.
+    starts = sorted(float(c.get("t") or 0.0) for c in
+                    ((rec.get("opening") or {}).get("conversations") or []) if isinstance(c, dict))
     rows = []
-    for turn in rec.get("transcript") or []:
+    for turn in turns:
         text = (turn.get("text") or "").strip()
         is_participant = turn.get("role") in ("participant", "user")
-        rows.append({"t": float(turn.get("t") or 0.0),
+        # t is when the line's transcript arrived, seconds after it was said.
+        # Newer step 1 records also note when it began: spoken_at for the
+        # participant, heard_at (playback start) for a character.
+        began = turn.get("spoken_at" if is_participant else "heard_at")
+        t = float(began if isinstance(began, (int, float)) and began >= 0 else turn.get("t") or 0.0)
+        rows.append({"t": round(t, 2),
                      "who": "Participant" if is_participant else label.get(turn.get("agent_id"), "Character"),
-                     "text": text})
+                     "participant": is_participant, "text": text,
+                     "part": max(0, sum(1 for s in starts if s <= t + 0.5) - 1),
+                     "note": "line cut off" if (turn.get("interrupted") and text) else None})
     tr = src.transcript(session_id)
     return {"rows": rows, "participant_source": tr.get("participant_source"),
-            "characters": len(cast)}
+            "parts": max([r["part"] for r in rows], default=0) + 1}
+
+
+def _example_lines(rows) -> Dict[int, Dict[str, Any]]:
+    """The transcript lines a rater may give as an example: the participant's, with words."""
+    return {i: r for i, r in enumerate(rows) if r["participant"] and r["text"]}
+
+
+def _example_refs(examples: Any) -> Dict[str, Any]:
+    """Stored examples as the page sends them: {"line": i} or {"clip": [a, b]}."""
+    out: Dict[str, Any] = {}
+    for k, xs in (examples or {}).items():
+        out[k] = [{"line": x["line"]} if "line" in x else {"clip": x["clip"]} for x in xs]
+    return out
+
+
+def _duration(manifest: Dict[str, Any], rows) -> float:
+    """How long the encounter ran, from step 1's start and end; the page
+    prefers the recording's own length once the browser knows it."""
+    try:
+        d = float(manifest.get("ended_at")) - float(manifest.get("started_at"))
+    except (TypeError, ValueError):
+        d = 0.0
+    return round(max(d, (rows[-1]["t"] + 5) if rows else 0.0, 1.0), 1)
+
+
+def _batch_stages(store, rid: str, a: Dict[str, Any]):
+    return [x for x in _rating.list_assignments(store, rid)
+            if x["data"].get("batch") == a["data"].get("batch")]
 
 
 @app.get("/api/rate/{code}")
@@ -509,21 +551,46 @@ def api_rate(code: str, request: Request) -> dict:
     try:
         transcript = _transcript_rows(sid)
         media = src.media_choice(sid)
+        manifest = src.manifest(sid) or {}
     except Exception as exc:  # step 1 unreachable: say so, nothing else
         print(f"  ERROR: step 1 source unavailable for {code}: {type(exc).__name__}: {exc}")
         raise HTTPException(status_code=503, detail="Recordings are unavailable right now; try again shortly.")
-    queue = _rating.queue_view(_rating.list_assignments(store, rid))
+    d = a["data"]
     draft = store.get(_rating.draft_key(rid, code)) or {}
+    submitted = None
+    if d["status"] == "done":
+        r = store.get(_rating.rating_key(rid, code)) or {}
+        rd = r.get("data") or {}
+        submitted = {"scores": rd.get("scores") or {}, "examples": _example_refs(rd.get("examples")),
+                     "comments": rd.get("comments") or {}, "at": r.get("created_at")}
     return {
-        "code": code, "rater_id": rid,
-        "position": a["data"]["position"], "total": len(queue), "status": a["data"]["status"],
+        "code": code, "stage": d.get("stage"), "stages": len(_batch_stages(store, rid, a)),
+        "status": d["status"],
         "media": ({"kind": media["kind"], "url": f"/rate/{code}/media"} if media else None),
-        "transcript": transcript["rows"], "characters": transcript["characters"],
-        "items": _rating.item_order(rid, code),
-        "scale": [{"value": n, "label": l} for n, l in _items.SCALE] +
-                 [{"value": _items.NA, "label": _items.NA_LABEL}],
-        "draft": {"scores": draft.get("scores") or {}, "comments": draft.get("comments") or {}},
+        "duration": _duration(manifest, transcript["rows"]),
+        "transcript": [{k: r[k] for k in ("t", "who", "participant", "text", "part", "note")}
+                       for r in transcript["rows"]],
+        "parts": transcript["parts"],
+        "items": _rating.item_order(rid, code, d.get("construct") or ""),
+        "draft": {"scores": draft.get("scores") or {},
+                  "examples": _example_refs(draft.get("examples")),
+                  "comments": draft.get("comments") or {}},
+        "submitted": submitted,
     }
+
+
+def _validated(a: Dict[str, Any], rid: str, code: str, payload: Any, *, complete: bool):
+    keys = [r["key"] for r in _rating.item_order(rid, code, a["data"].get("construct") or "")]
+    try:
+        rows = _transcript_rows(a["step1"]["session_ids"][0])["rows"]
+    except Exception as exc:
+        print(f"  ERROR: step 1 source unavailable for {code}: {type(exc).__name__}: {exc}")
+        raise HTTPException(status_code=503, detail="Recordings are unavailable right now; try again shortly.")
+    try:
+        return _rating.validate_submission(payload, keys=keys, lines=_example_lines(rows),
+                                           complete=complete)
+    except _rating.RatingError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
 
 
 @app.put("/api/rate/{code}/draft")
@@ -532,14 +599,12 @@ def api_rate_draft(code: str, request: Request, payload: Any = Body(...)) -> dic
     a = _assignment_or_404(rid, code)
     if a["data"]["status"] == "done":
         raise HTTPException(status_code=409, detail="Already submitted")
-    try:
-        scores, comments = _rating.validate_submission(payload, complete=False)
-    except _rating.RatingError as exc:
-        raise HTTPException(status_code=400, detail=str(exc))
+    scores, examples, comments = _validated(a, rid, code, payload, complete=False)
     _store.get_store().put(_rating.draft_key(rid, code), {
-        "kind": "draft", "schema": 1, "rater_id": rid, "code": code, "scores": scores,
-        "comments": comments, "saved_at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())})
-    return {"saved": True, "answered": len(scores), "of": len(_items.item_keys())}
+        "kind": "draft", "schema": 2, "rater_id": rid, "code": code, "scores": scores,
+        "examples": examples, "comments": comments,
+        "saved_at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())})
+    return {"saved": True, "answered": len(scores)}
 
 
 @app.post("/api/rate/{code}/submit", status_code=201)
@@ -549,10 +614,11 @@ def api_rate_submit(code: str, request: Request, payload: Any = Body(...)) -> di
     a = _assignment_or_404(rid, code)
     if a["data"]["status"] == "done" or store.get(_rating.rating_key(rid, code)) is not None:
         raise HTTPException(status_code=409, detail="Already submitted")
-    try:
-        scores, comments = _rating.validate_submission(payload, complete=True)
-    except _rating.RatingError as exc:
-        raise HTTPException(status_code=400, detail=str(exc))
+    stages = _batch_stages(store, rid, a)
+    if any(x["data"]["status"] != "done" for x in stages
+           if (x["data"].get("stage") or 0) < (a["data"].get("stage") or 0)):
+        raise HTTPException(status_code=409, detail="Submit the recordings in order.")
+    scores, examples, comments = _validated(a, rid, code, payload, complete=True)
     sid = a["step1"]["session_ids"][0]
     src = _source.get_source()
     try:
@@ -560,15 +626,18 @@ def api_rate_submit(code: str, request: Request, payload: Any = Body(...)) -> di
         tsrc = src.transcript(sid).get("participant_source")
     except Exception:
         media, tsrc = None, None
-    rec = _rating.rating_record(a, scores, comments, media_kind=media["kind"] if media else None,
-                                transcript_source=tsrc)
+    rec = _rating.rating_record(a, scores, examples, comments,
+                                media_kind=media["kind"] if media else None, transcript_source=tsrc)
     if not store.put(_rating.rating_key(rid, code), rec, create_only=True):
         raise HTTPException(status_code=409, detail="Already submitted")
     a["data"]["status"] = "done"
     a["data"]["done_at"] = rec["created_at"]
     store.put(_rating.assignment_key(rid, code), a)
-    activity.end(f"rater:{rid}")
-    return {"submitted": True, "code": code, "record_id": rec["record_id"]}
+    view = _rating.batch_view([a if x["data"]["code"] == code else x for x in stages])
+    if view["done"]:
+        activity.end(f"rater:{rid}")
+    return {"submitted": True, "code": code, "record_id": rec["record_id"],
+            "batch_done": view["done"], "completion_code": view["completion_code"]}
 
 
 @app.get("/rate/{code}/media")
@@ -620,21 +689,11 @@ def api_raters_list(key: Optional[str] = Depends(researcher_key)) -> dict:
     store = _store.get_store()
     out = []
     for r in _rating.list_raters(store):
-        q = _rating.queue_view(_rating.list_assignments(store, r["rater_id"]))
-        out.append({**_rating.public_rater(r), "assigned": len(q),
-                    "done": sum(x["status"] == "done" for x in q)})
+        mine = _rating.list_assignments(store, r["rater_id"])
+        out.append({**_rating.public_rater(r), "assigned": len(mine),
+                    "done": sum(a["data"]["status"] == "done" for a in mine),
+                    "batches": len({a["data"].get("batch") for a in mine})})
     return {"raters": out, "count": len(out)}
-
-
-@app.post("/api/assignments", status_code=201)
-def api_assignments_create(key: Optional[str] = Depends(researcher_key), payload: Dict[str, Any] = Body(...)) -> dict:
-    """{"rater_id": ..., "session_ids": [...]}: give a rater these step 1 encounters."""
-    check_key(key)
-    try:
-        return _rating.assign(_store.get_store(), _source.get_source(),
-                              str(payload.get("rater_id") or ""), payload.get("session_ids"))
-    except _rating.RatingError as exc:
-        raise HTTPException(status_code=400, detail=str(exc))
 
 
 @app.get("/api/assignments")
@@ -648,6 +707,30 @@ def api_assignments_list(key: Optional[str] = Depends(researcher_key), rater_id:
             out.append({**a["data"], "step1": a["step1"], "cohort": a["cohort"],
                         "assigned_at": a["created_at"]})
     return {"assignments": out, "count": len(out)}
+
+
+@app.get("/api/coverage")
+def api_coverage(key: Optional[str] = Depends(researcher_key)) -> dict:
+    """Every encounter that may be given out, with how many raters have it and
+    how many have submitted, against RATINGS_PER_SESSION."""
+    check_key(key)
+    store, src = _store.get_store(), _source.get_source()
+    given = _rating.slot_counts(store)
+    rated: Dict[str, int] = {}
+    for k in store.list_keys("ratings/"):
+        sids = ((store.get(k) or {}).get("step1") or {}).get("session_ids") or []
+        if sids:
+            rated[sids[0]] = rated.get(sids[0], 0) + 1
+    cohorts = _rating.rate_cohorts()
+    rows = [{"session_id": e["session_id"], "participant_key": e["participant_key"],
+             "scenario": e.get("scenario"), "cohort": e.get("cohort"),
+             "given": given.get(e["session_id"], 0), "rated": rated.get(e["session_id"], 0)}
+            for e in sorted(src.index().values(),
+                            key=lambda e: (e.get("participant_key") or "", e.get("encounter_index") or 0))
+            if _rating.eligible(e, cohorts)]
+    need = _rating.RATINGS_PER_SESSION
+    return {"ratings_per_session": need, "cohorts": list(cohorts), "count": len(rows),
+            "fully_rated": sum(r["rated"] >= need for r in rows), "sessions": rows}
 
 
 @app.get("/api/ratings")

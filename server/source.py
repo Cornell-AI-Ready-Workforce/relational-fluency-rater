@@ -196,10 +196,11 @@ class Step1Source:
     # --- media -------------------------------------------------------------------------
     #
     # What a rater watches or listens to. The webcam recording when the browser
-    # uploaded one (webcam.webm), else the participant's own audio channel
-    # (record.json audio.participant, user_audio.wav in every archive so far).
-    # The characters' audio is per agent in separate files and is not mixed
-    # here; the transcript carries their lines.
+    # uploaded one (webcam.webm, camera plus the mixed conversation audio).
+    # Else step 1's mix of the whole conversation (record.json
+    # audio.conversation, conversation_audio.wav, in archives since that was
+    # added), else the participant's own channel (audio.participant,
+    # user_audio.wav), where the characters are heard only in the transcript.
 
     VIDEO_NAME = "webcam.webm"
 
@@ -233,11 +234,11 @@ class Step1Source:
         if self.VIDEO_NAME in files:
             return {"name": self.VIDEO_NAME, "kind": "video", "content_type": "video/webm",
                     "size": files[self.VIDEO_NAME]}
-        rec = self.record(session_id) or {}
-        wanted = ((rec.get("audio") or {}).get("participant")) or "user_audio.wav"
-        if wanted in files and wanted.endswith(".wav"):
-            return {"name": wanted, "kind": "audio", "content_type": "audio/wav",
-                    "size": files[wanted]}
+        audio = (self.record(session_id) or {}).get("audio") or {}
+        for wanted in (audio.get("conversation"), audio.get("participant") or "user_audio.wav"):
+            if isinstance(wanted, str) and wanted in files and wanted.endswith(".wav"):
+                return {"name": wanted, "kind": "audio", "content_type": "audio/wav",
+                        "size": files[wanted]}
         return None
 
     def media_local_path(self, session_id: str, name: str) -> Optional[Path]:
