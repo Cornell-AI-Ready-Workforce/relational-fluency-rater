@@ -14,12 +14,15 @@
 #      never applies)
 #   4. tofu -chdir=infra/terraform apply tfplan.bin, then check /health "build"
 #
-# deployed: nothing yet; this is the FIRST release. Base stack applied
-#   2026-11-08 (41 resources; cluster relational-fluency-rater has 0 services,
-#   no task definition exists), researcher key set. This tag (cbed27e, main
-#   with #2 and #3) is built with BUILD_SHA by build-image run 42536229322 and
-#   pushed, awaiting the apply that registers relational-fluency-rater-app:1.
-container_image = "540586745717.dkr.ecr.us-east-1.amazonaws.com/relational-fluency-rater/app:cbed27e"
+# deployed: nothing. The stack was applied and cbed27e ran as
+#   relational-fluency-rater-app:1 on 2026-11-08, then the whole stack was
+#   destroyed the same evening (43 resources). On 2026-11-10 the team decided
+#   the rater does run as a site of its own, so it is to be deployed again
+#   (#18). State rater/terraform.tfstate is empty; the KMS key and the
+#   researcher-key secret are pending deletion; the ECR images and the GitHub
+#   build role were deleted. The new deploy starts again from
+#   docs/DEPLOY-AWS.md, "First deploy".
+container_image = ""
 
 # Retention: rater_data_retention_days defaults to 0 = no expiration rule. It is
 # the PI's decision; to expire records, set a positive number here, in a commit:
