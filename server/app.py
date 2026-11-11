@@ -480,9 +480,13 @@ def _transcript_rows(session_id: str) -> Dict[str, Any]:
                     ((rec.get("opening") or {}).get("conversations") or []) if isinstance(c, dict))
     rows = []
     for turn in turns:
-        t = float(turn.get("t") or 0.0)
         text = (turn.get("text") or "").strip()
         is_participant = turn.get("role") in ("participant", "user")
+        # t is when the line's transcript arrived, seconds after it was said.
+        # Newer step 1 records also note when it began: spoken_at for the
+        # participant, heard_at (playback start) for a character.
+        began = turn.get("spoken_at" if is_participant else "heard_at")
+        t = float(began if isinstance(began, (int, float)) and began >= 0 else turn.get("t") or 0.0)
         rows.append({"t": round(t, 2),
                      "who": "Participant" if is_participant else label.get(turn.get("agent_id"), "Character"),
                      "participant": is_participant, "text": text,
