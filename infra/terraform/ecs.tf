@@ -178,6 +178,7 @@ resource "aws_ecs_task_definition" "app" {
       { name = "AWS_REGION", value = var.region },
       { name = "SOURCE_BUCKET", value = data.aws_s3_bucket.step1.bucket },
       { name = "RATER_BUCKET", value = aws_s3_bucket.rater_data.bucket },
+      { name = "RATE_COHORTS", value = var.rate_cohorts },
       { name = "HOST", value = "0.0.0.0" },
       { name = "PORT", value = "8080" },
     ]
