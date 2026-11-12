@@ -12,11 +12,12 @@
 /* The rating screen, from the UI prototype (prototype/rater-ui.html until 2026-11-05), fed by the app:
    GET/POST /api/batch for the rater's recordings, GET /api/rate/<code> for each one, drafts saved
    with PUT /api/rate/<code>/draft and answers sent with POST /api/rate/<code>/submit.
-   Layout: a collapsible side menu listing the rater's recordings, then two working columns, WATCH | RATE,
+   Layout: a header card listing the rater's recordings as steps, then two working columns, WATCH | RATE,
    and a full-width review page before each stage is submitted. One job per control, one filled button
    at a time. The page follows the rater's own settings: light or dark, more contrast, forced colors,
    reduced motion and text size. It offers no in-page switches for any of them.
-   It has its own palette, not static/theme.css, and like every page here it fetches nothing from
+   Its palette is the simulation app's (step 1's static/v2.html), written here and not taken from
+   static/theme.css, and like every page here it fetches nothing from
    another site (the Content-Security-Policy is 'self'): Inter is the app's own copy. */
 @font-face { font-family: "Inter"; font-style: normal; font-weight: 100 900; font-display: swap;
   src: url("/static/fonts/inter-latin-wght-normal.woff2") format("woff2");
@@ -24,60 +25,66 @@
     U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD; }
 :root {
   color-scheme: light;
-  --ground: #F7F7F5;
-  --surface: #FFFFFF;
-  --surface-2: #F1F2F0;
-  --chip: #EEF0F2;
-  --ink: #17181A;
-  --muted: #5F6570;
-  --line: #E4E4E0;
-  --line-strong: #CFCFCA;
-  --field: #83878D; /* control edges: 3:1 on every surface (WCAG 1.4.11) */
+  --ground: #ededec;
+  --surface: #ffffff;
+  --surface-2: #ededec;
+  --chip: #e3e4e2;
+  --ink: #2f2f2f;
+  --muted: #6a6a68;
+  --disabled-ink: #4a4a48;
+  --line: #d0d1ce;
+  --line-strong: #b8b9b6;
+  --field: #858683; /* control edges: 3:1 on every surface */
+  --accent: #b3181b; /* the app's red: the main button, the chosen answer, where you are */
+  --accent-deep: #951417;
+  --accent-soft: #f1dcdc;
+  --accent-ink: #b3181b;
+  --on-accent: #ffffff;
   --mark: #2457C5; /* blue only ever means "example" */
   --mark-bg: #E9EFFB;
   --on-mark: #FFFFFF;
-  --ok: #1F7A4D;
-  --ok-bg: #E6F4EC;
+  --ok: #2f7d4a;
+  --ok-bg: #e4f1e8;
   --warn: #7A5512;
-  --screen: #2B2D31;
-  --screen-ink: #C7CAD0;
-  --focus: #17181A;
+  --screen: #2f2f2f;
+  --screen-hi: #4a4a4a;
+  --screen-ink: #f5f5f4;
+  --focus: #2f2f2f;
   --focus-w: 2px;
-  --shadow: 0 1px 2px rgba(23, 24, 26, .06);
-  --sans: "Inter", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
-  --mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
-  --r: 10px;
-  --r-sm: 6px;
-  --ctl-h: 2.25rem;
-  --nav-w: 15rem;
+  --shadow: 0 1px 2px rgba(47, 47, 47, .05), 0 2px 8px rgba(47, 47, 47, .05);
+  --sans: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+  --mono: var(--sans); /* figures in the page's typeface, one width each */
+  --r: 18px;
+  --r-sm: 10px;
+  --ctl-h: 2.5rem;
 }
-/* Dark: the study's dark neutrals, not an inversion. Accents are lifted so they keep their contrast. */
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) {
     color-scheme: dark;
-    --ground: #0E1013; --surface: #161A1E; --surface-2: #1D2126; --chip: #252A30;
-    --ink: #E9ECEF; --muted: #A2A9B2; --line: #2A2F35; --line-strong: #3E454D; --field: #6A717B;
+    --ground: #1a1a19; --surface: #252524; --surface-2: #2f2f2e; --chip: #363635;
+    --ink: #f0f0ee; --muted: #a9a9a5; --disabled-ink: #b5b5b1; --line: #3a3a38; --line-strong: #50504d; --field: #7d7d79;
+    --accent: #c9272a; --accent-deep: #dd3a3d; --accent-soft: #4a2021; --accent-ink: #ff9d9f; --on-accent: #ffffff;
     --mark: #8DB1FF; --mark-bg: #1B2944; --on-mark: #0E1013;
     --ok: #74D3A3; --ok-bg: #13291C; --warn: #E9C47A;
-    --screen: #050607; --screen-ink: #A9AEB6; --focus: #E9ECEF;
+    --screen: #111110; --screen-hi: #2a2a29; --screen-ink: #f5f5f4; --focus: #f0f0ee;
     --shadow: 0 1px 2px rgba(0, 0, 0, .4);
   }
 }
 :root[data-theme="dark"] {
   color-scheme: dark;
-  --ground: #0E1013; --surface: #161A1E; --surface-2: #1D2126; --chip: #252A30;
-  --ink: #E9ECEF; --muted: #A2A9B2; --line: #2A2F35; --line-strong: #3E454D; --field: #6A717B;
+  --ground: #1a1a19; --surface: #252524; --surface-2: #2f2f2e; --chip: #363635;
+  --ink: #f0f0ee; --muted: #a9a9a5; --disabled-ink: #b5b5b1; --line: #3a3a38; --line-strong: #50504d; --field: #7d7d79;
+  --accent: #c9272a; --accent-deep: #dd3a3d; --accent-soft: #4a2021; --accent-ink: #ff9d9f; --on-accent: #ffffff;
   --mark: #8DB1FF; --mark-bg: #1B2944; --on-mark: #0E1013;
   --ok: #74D3A3; --ok-bg: #13291C; --warn: #E9C47A;
-  --screen: #050607; --screen-ink: #A9AEB6; --focus: #E9ECEF;
+  --screen: #111110; --screen-hi: #2a2a29; --screen-ink: #f5f5f4; --focus: #f0f0ee;
   --shadow: 0 1px 2px rgba(0, 0, 0, .4);
 }
-/* More contrast when the rater asks the system for it. */
 @media (prefers-contrast: more) {
-  :root { --muted: #3A3F46; --line: #A9A9A3; --line-strong: #6B6B66; --field: #5C5C57; --focus-w: 3px; --mark-bg: #DCE6FA; }
+  :root { --muted: #4a4a48; --line: #a9a9a3; --line-strong: #6b6b66; --field: #5c5c57; --focus-w: 3px; --mark-bg: #DCE6FA; }
 }
 @media (prefers-contrast: more) and (prefers-color-scheme: dark) {
-  :root:not([data-theme="light"]) { --muted: #D0D5DB; --line: #5A616A; --line-strong: #8A919A; --field: #9AA1AA; --mark-bg: #22365C; }
+  :root:not([data-theme="light"]) { --muted: #d0d0cc; --line: #5a5a57; --line-strong: #8a8a86; --field: #9a9a96; --mark-bg: #22365C; }
 }
 
 * { box-sizing: border-box; }
@@ -122,13 +129,6 @@ button, input, select, textarea { font: inherit; color: inherit; }
 .side-foot { margin-top: auto; padding: 0 10px; }
 .link { border: 0; background: transparent; padding: 2px 0; min-height: 24px; color: var(--muted); text-decoration: underline; text-decoration-color: var(--line-strong); text-underline-offset: 3px; cursor: pointer; font-size: 0.75rem; }
 .link:hover { color: var(--ink); text-decoration-color: currentColor; }
-@media (min-width: 901px) {
-  .app.collapsed { --nav-w: 4rem; }
-  .collapsed .brand, .collapsed .nav-item .lbl, .collapsed .nav-code, .collapsed .side-foot { display: none; }
-  .collapsed .side { padding-inline: 8px; align-items: center; }
-  .collapsed .side-top { justify-content: center; padding: 0; }
-  .collapsed .nav-item { grid-template-columns: 1.625rem; padding: 6px; justify-content: center; }
-}
 
 /* Main */
 .main { min-width: 0; padding: 0 16px 16px; }
@@ -334,15 +334,6 @@ button, input, select, textarea { font: inherit; color: inherit; }
 .tour-card.sheet.sheet-top { top: 0 !important; bottom: auto; border-radius: 0 0 var(--r) var(--r); }
 html:has(#tour[open]) { overflow: hidden; }
 
-/* Narrow screens: the menu becomes a block above the content */
-@media (max-width: 900px) {
-  .app { grid-template-columns: minmax(0, 1fr); align-content: start; }
-  .side { position: static; height: auto; border-right: 0; border-bottom: 1px solid var(--line); padding: 12px 16px; }
-  .nav-list { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-  .side-foot { margin-top: 0; }
-  .nav-item .lbl span { white-space: normal; }
-  .collapsed .side > :not(.side-top) { display: none; }
-}
 @media (max-width: 1100px) { .screen { width: 100%; } }
 
 /* Reduced motion: keep every state change, drop the movement. */
@@ -377,6 +368,103 @@ html:has(#tour[open]) { overflow: hidden; }
    server/app.py; bug reports quote it, as on step 1's pages. */
 .build-tag { padding: 0 20px 10px; text-align: right; font-size: 11px; color: var(--muted);
   font-family: ui-monospace, Menlo, monospace; user-select: all; }
+
+/* ---------- The simulation app's look ---------- */
+body { font: 0.90625rem/1.55 var(--sans); accent-color: var(--accent); }
+h1, h2, h3 { letter-spacing: -0.011em; }
+.app { display: block; max-width: 1480px; min-height: 0; margin: 0 auto; padding-block: 16px 20px;
+  padding-left: max(20px, env(safe-area-inset-left, 0px)); padding-right: max(20px, env(safe-area-inset-right, 0px)); }
+.main { padding: 0; }
+
+/* Header card: the mark and name, the four recordings as steps, the code, the tour */
+.side { position: static; height: auto; overflow: visible; flex-direction: row; flex-wrap: wrap; align-items: center;
+  gap: 12px 18px; padding: 12px 18px; border: 1px solid var(--line); border-radius: var(--r); box-shadow: var(--shadow); }
+.side-top { padding: 0; gap: 12px; justify-content: flex-start; }
+#collapse { display: none; }
+.room-mark { width: 38px; height: 38px; border-radius: 12px; flex: 0 0 auto; background: var(--screen); color: var(--screen-ink);
+  display: inline-flex; align-items: center; justify-content: center; }
+.room-mark svg { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+.brand { font-size: 1.125rem; font-weight: 700; line-height: 1.2; letter-spacing: -0.011em; }
+.brand small { display: block; font-size: 0.75rem; font-weight: 500; color: var(--muted); letter-spacing: 0; }
+.nav-list { display: flex; flex-wrap: wrap; gap: 6px; flex: 1 1 auto; }
+.nav-item { width: auto; border-left: 0; border-radius: 12px; padding: 7px 14px 7px 8px; }
+.nav-item[aria-current="page"] { background: var(--accent-soft); }
+.nav-item[aria-current="page"]:not(.done) .num { background: var(--accent); border-color: var(--accent); color: var(--on-accent); }
+.nav-item .lbl b { font-weight: 600; }
+.nav-code { border-radius: 12px; padding: 8px 12px; display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; }
+.nav-code:empty { display: none; }
+.side-foot { margin: 0 0 0 auto; padding: 0; }
+.link { font-size: 0.8125rem; }
+
+.enc-head { padding-block: 16px 12px; }
+.enc-head h1 { font-size: 1.125rem; font-weight: 700; }
+
+/* Cards and their headers */
+.card { border-color: var(--line); }
+.card-h, .tr-title { display: flex; align-items: center; gap: 10px; margin: 0; padding: 14px 18px; border-bottom: 1px solid var(--line);
+  font-size: 0.90625rem; font-weight: 600; letter-spacing: normal; }
+.card-h .ic { width: 30px; height: 30px; border-radius: 9px; flex: 0 0 auto; background: var(--accent-soft); color: var(--accent-ink);
+  display: inline-flex; align-items: center; justify-content: center; }
+.card-h .ic svg { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+.player { padding: 0 0 16px; gap: 12px; }
+.player > :not(.card-h) { margin-inline: 18px; }
+.player > .screen { margin-inline: auto; max-width: calc(100% - 36px); }
+
+/* Buttons: the red one is the main action, the white one everything else */
+.btn { border-color: var(--field); padding: 6px 18px; font-weight: 600; }
+.btn.primary { background: var(--accent); border-color: var(--accent); color: var(--on-accent); }
+.btn.primary:hover { background: var(--accent-deep); border-color: var(--accent-deep); opacity: 1; }
+.btn.small { min-height: 1.875rem; padding: 2px 12px; border-radius: 8px; }
+.btn:disabled, .btn:disabled:hover { background: var(--surface-2); color: var(--disabled-ink); border-color: var(--line); }
+.icon-btn { border-radius: var(--r-sm); }
+
+/* The recording is a tile from the room */
+.screen { border-radius: 16px; background: radial-gradient(120% 90% at 50% 20%, var(--screen-hi) 0%, var(--screen) 60%); transition: box-shadow .2s; }
+.screen.playing { box-shadow: 0 0 0 3px var(--accent); }
+.screen .avatar { opacity: .8; }
+.speaking { left: auto; right: 12px; top: 12px; bottom: auto; background: var(--accent); color: var(--on-accent); border-radius: 999px;
+  font-size: 0.6875rem; font-weight: 600; letter-spacing: .04em; padding: 4px 10px; }
+.track { border-radius: var(--r-sm); }
+.controls .clock { font-weight: 600; color: var(--ink); background: var(--surface-2); padding: 5px 10px; border-radius: 8px; }
+
+/* Transcript */
+.tr-title { border-bottom: 1px solid var(--line); }
+.part { padding: 8px 18px; font-size: 0.71875rem; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; }
+.turn { padding: 10px 14px 10px 11px; }
+.turn.now { border-left-color: var(--accent); }
+.turn .txt { font-size: 0.9375rem; line-height: 1.55; }
+.sel-strip { padding-inline: 18px; }
+
+/* Questions */
+.rate-intro { padding: 14px 18px 12px; }
+.where { padding-inline: 18px; }
+.q-head { padding-inline: 18px; }
+.q-body { padding: 0 18px 16px; }
+.item.open { box-shadow: inset 3px 0 0 var(--accent); }
+.opt span { border-radius: var(--r-sm); }
+.opt b { font-weight: 600; }
+.opt input:hover + span { border-color: var(--accent); }
+.opt input:checked + span { background: var(--accent); border-color: var(--accent); color: var(--on-accent); }
+.opt input:checked + span i { color: var(--on-accent); }
+.submit-row { padding: 12px 18px; }
+.field textarea { border-radius: var(--r-sm); padding: 10px 12px; }
+.rv-item, .rv-comments { padding-inline: 18px; }
+.rv-comments h2 { font-size: 0.90625rem; }
+.score-pill { background: var(--screen); color: var(--screen-ink); }
+.tour-card { border-radius: var(--r); }
+
+@media (max-width: 900px) {
+  .app { padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); }
+  .side { padding: 12px 14px; }
+  .nav-list { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); flex-basis: 100%; }
+  .nav-item { width: 100%; }
+  .nav-item .lbl span { white-space: normal; }
+  .side-foot { margin-left: 0; }
+}
+@media (forced-colors: active) {
+  .nav-item[aria-current="page"] { outline: 2px solid Highlight; outline-offset: -2px; }
+  .screen.playing { outline: 3px solid Highlight; }
+}
 </style>
 </head>
 <body>
@@ -386,7 +474,7 @@ html:has(#tour[open]) { overflow: hidden; }
 <div class="app" id="app">
   <nav class="side" id="side" aria-label="Recordings">
     <div class="side-top">
-      <div class="brand">Relational Fluency</div>
+      <span class="room-mark" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M4 5h16v11H9l-5 4z"/><path d="M8 9h8M8 12h5"/></svg></span><div class="brand">Relational Fluency<small>Rating</small></div>
       <button class="icon-btn" id="collapse" type="button" aria-label="Hide menu">
         <svg class="ico" viewBox="0 0 16 16" aria-hidden="true"><rect x="2" y="3" width="12" height="10" rx="1.5" fill="none" stroke="currentColor" stroke-width="1.5"/><path d="M6.5 3v10" fill="none" stroke="currentColor" stroke-width="1.5"/></svg>
       </button>
@@ -414,6 +502,7 @@ html:has(#tour[open]) { overflow: hidden; }
         <section class="watch" aria-labelledby="watch-h">
           <h2 class="sr" id="watch-h">Recording and transcript</h2>
           <div class="card player">
+            <h3 class="card-h"><span class="ic" aria-hidden="true"><svg viewBox="0 0 24 24"><rect x="3" y="6" width="12" height="12" rx="2.5"/><path d="M15 10.5 21 7v10l-6-3.5"/></svg></span>Recording</h3>
             <div class="screen" id="screen" tabindex="-1">
               <video id="media" playsinline preload="metadata" disablepictureinpicture></video>
               <svg class="avatar" viewBox="0 0 64 64" aria-hidden="true"><circle cx="32" cy="22" r="11" fill="currentColor"/><path d="M10 58c0-12.2 9.8-21 22-21s22 8.8 22 21z" fill="currentColor"/></svg>
@@ -438,7 +527,7 @@ html:has(#tour[open]) { overflow: hidden; }
           </div>
 
           <div class="card transcript">
-            <h3 class="tr-title" id="tr-title">Transcript</h3>
+            <h3 class="tr-title card-h" id="tr-title"><span class="ic" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M5 7h14M5 12h14M5 17h9"/></svg></span>Transcript</h3>
             <div class="tr-scroll" id="tr-scroll" tabindex="0" role="region" aria-labelledby="tr-title">
               <div class="sel-strip" id="sel-strip" hidden></div>
               <ol class="tr-list" id="tr-list"></ol>
@@ -447,7 +536,7 @@ html:has(#tour[open]) { overflow: hidden; }
         </section>
 
         <section class="rate card" id="rate-sec" tabindex="-1" aria-labelledby="rate-h">
-          <h2 class="sr" id="rate-h">Questions</h2>
+          <h2 class="card-h" id="rate-h"><span class="ic" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M4 7l2 2 3-4M4 16l2 2 3-4M13 7h7M13 16h7"/></svg></span>Questions</h2>
           <div class="rate-intro">
             <p>How often did the participant do each thing below? The participant is the person you are rating. The other speakers are characters.</p>
             <p class="rule">If you pick 2 to 5, add at least one example: a line the participant said, or a clip of them speaking.</p>
