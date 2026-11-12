@@ -364,6 +364,10 @@ html:has(#tour[open]) { overflow: hidden; }
   .tour-card { border-color: CanvasText; }
   :focus-visible { outline-color: Highlight; }
 }
+/* The build the page was served from (server/build_info.py), filled in by
+   server/app.py; bug reports quote it, as on step 1's pages. */
+.build-tag { padding: 0 20px 10px; text-align: right; font-size: 11px; color: var(--muted);
+  font-family: ui-monospace, Menlo, monospace; user-select: all; }
 
 /* ---------- The simulation app's look ---------- */
 body { font: 0.90625rem/1.55 var(--sans); accent-color: var(--accent); }
@@ -1636,5 +1640,6 @@ h1, h2, h3 { letter-spacing: -0.011em; }
   }
 })();
 </script>
+<div class="build-tag">{{build}}</div>
 </body>
 </html>

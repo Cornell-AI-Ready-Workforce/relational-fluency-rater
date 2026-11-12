@@ -21,13 +21,14 @@ from pathlib import Path
 from typing import Any, Dict, Optional
 
 from dotenv import load_dotenv
-from fastapi import Body, Depends, FastAPI, HTTPException, Query, Request, Response
+from fastapi import Body, Depends, FastAPI, Header, HTTPException, Query, Request, Response
 from fastapi.responses import (FileResponse, HTMLResponse, JSONResponse, PlainTextResponse,
                                RedirectResponse, StreamingResponse)
 from fastapi.staticfiles import StaticFiles
 from starlette.concurrency import run_in_threadpool
 from uvicorn.middleware.proxy_headers import ProxyHeadersMiddleware
 
+from . import logsafe as _logsafe
 from . import rating as _rating
 from . import source as _source
 from . import store as _store
@@ -35,6 +36,10 @@ from .build_info import build_sha
 from .conventions import normalize_cohort, normalize_participant_key, valid_stored_participant_key
 
 load_dotenv()
+
+# Query values (the researcher key, a rater's sign-in token) never reach the
+# access log; see server/logsafe.py. main() also passes its log config.
+_logsafe.install()
 
 ROOT_DIR = Path(__file__).resolve().parent.parent
 STATIC_DIR = ROOT_DIR / "static"
@@ -104,6 +109,17 @@ def is_researcher(key: Optional[str]) -> bool:
 def check_key(key: Optional[str]) -> None:
     if not is_researcher(key):
         raise HTTPException(status_code=401, detail="Bad or missing key")
+
+
+def researcher_key(key: Optional[str] = Query(None),
+                   x_researcher_key: Optional[str] = Header(None)) -> Optional[str]:
+    """The researcher key from the X-Researcher-Key header, or else ?key=.
+
+    The header is the form to use (docs/OPERATIONS.md, docs/RATING.md): a
+    header is not part of the URL, so it stays out of shell history, browser
+    history and any log that records URLs. ?key= still works, and the access
+    log drops its value either way (server/logsafe.py)."""
+    return x_researcher_key or key
 
 
 # --- active sessions ----------------------------------------------------------------
@@ -339,7 +355,7 @@ def visit(v: str = Query("")) -> HTMLResponse:
 # --- researcher API -------------------------------------------------------------------
 
 @app.get("/api/entries")
-def api_entries(key: Optional[str] = None, cohort: Optional[str] = None) -> dict:
+def api_entries(key: Optional[str] = Depends(researcher_key), cohort: Optional[str] = None) -> dict:
     check_key(key)
     store = _store.get_store()
     out = []
@@ -354,7 +370,7 @@ def api_entries(key: Optional[str] = None, cohort: Optional[str] = None) -> dict
 
 
 @app.get("/api/step1/participants/{participant_key}/encounters")
-def api_step1_encounters(participant_key: str, key: Optional[str] = None) -> dict:
+def api_step1_encounters(participant_key: str, key: Optional[str] = Depends(researcher_key)) -> dict:
     """What this app sees of a participant in step 1: for checking the mapping."""
     check_key(key)
     if not valid_stored_participant_key(participant_key):
@@ -436,7 +452,8 @@ def rate_home(request: Request, token: Optional[str] = Query(None)):
     if not rid:
         return _rater_notice("Rater sign-in", "Open the link the study team gave you to start rating.")
     activity.touch(f"rater:{rid}")
-    return HTMLResponse(RATE_PAGE.read_text(encoding="utf-8"), headers=_NO_STORE)
+    page = RATE_PAGE.read_text(encoding="utf-8").replace("{{build}}", html.escape(build_sha() or ""))
+    return HTMLResponse(page, headers=_NO_STORE)
 
 
 @app.get("/api/batch")
@@ -479,9 +496,13 @@ def _transcript_rows(session_id: str) -> Dict[str, Any]:
                     ((rec.get("opening") or {}).get("conversations") or []) if isinstance(c, dict))
     rows = []
     for turn in turns:
-        t = float(turn.get("t") or 0.0)
         text = (turn.get("text") or "").strip()
         is_participant = turn.get("role") in ("participant", "user")
+        # t is when the line's transcript arrived, seconds after it was said.
+        # Newer step 1 records also note when it began: spoken_at for the
+        # participant, heard_at (playback start) for a character.
+        began = turn.get("spoken_at" if is_participant else "heard_at")
+        t = float(began if isinstance(began, (int, float)) and began >= 0 else turn.get("t") or 0.0)
         rows.append({"t": round(t, 2),
                      "who": "Participant" if is_participant else label.get(turn.get("agent_id"), "Character"),
                      "participant": is_participant, "text": text,
@@ -650,7 +671,7 @@ def rate_media(code: str, request: Request):
 # --- researcher API: raters, assignments, ratings -----------------------------------------
 
 @app.post("/api/raters", status_code=201)
-def api_raters_create(key: Optional[str] = None, payload: Dict[str, Any] = Body(...)) -> dict:
+def api_raters_create(key: Optional[str] = Depends(researcher_key), payload: Dict[str, Any] = Body(...)) -> dict:
     check_key(key)
     try:
         rec, token = _rating.new_rater(_store.get_store(), str(payload.get("rater_id") or ""),
@@ -663,7 +684,7 @@ def api_raters_create(key: Optional[str] = None, payload: Dict[str, Any] = Body(
 
 
 @app.get("/api/raters")
-def api_raters_list(key: Optional[str] = None) -> dict:
+def api_raters_list(key: Optional[str] = Depends(researcher_key)) -> dict:
     check_key(key)
     store = _store.get_store()
     out = []
@@ -676,7 +697,7 @@ def api_raters_list(key: Optional[str] = None) -> dict:
 
 
 @app.get("/api/assignments")
-def api_assignments_list(key: Optional[str] = None, rater_id: Optional[str] = None) -> dict:
+def api_assignments_list(key: Optional[str] = Depends(researcher_key), rater_id: Optional[str] = None) -> dict:
     check_key(key)
     store = _store.get_store()
     raters = [rater_id] if rater_id else [r["rater_id"] for r in _rating.list_raters(store)]
@@ -689,7 +710,7 @@ def api_assignments_list(key: Optional[str] = None, rater_id: Optional[str] = No
 
 
 @app.get("/api/coverage")
-def api_coverage(key: Optional[str] = None) -> dict:
+def api_coverage(key: Optional[str] = Depends(researcher_key)) -> dict:
     """Every encounter that may be given out, with how many raters have it and
     how many have submitted, against RATINGS_PER_SESSION."""
     check_key(key)
@@ -713,7 +734,7 @@ def api_coverage(key: Optional[str] = None) -> dict:
 
 
 @app.get("/api/ratings")
-def api_ratings(key: Optional[str] = None, format: str = "json"):
+def api_ratings(key: Optional[str] = Depends(researcher_key), format: str = "json"):
     check_key(key)
     store = _store.get_store()
     recs = [r for r in (store.get(k) for k in store.list_keys("ratings/")) if r and r.get("kind") == "rating"]
@@ -773,7 +794,8 @@ def main() -> int:
         return 2
     host = os.getenv("HOST", "127.0.0.1")
     port = int(os.getenv("PORT", "8766"))  # step 1 is 8765; both can run at once
-    uvicorn.run("server.app:app", host=host, port=port, reload=False, log_level="info")
+    uvicorn.run("server.app:app", host=host, port=port, reload=False, log_level="info",
+                log_config=_logsafe.log_config())
     return 0
 
 

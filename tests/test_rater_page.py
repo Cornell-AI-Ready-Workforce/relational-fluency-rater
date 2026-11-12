@@ -33,3 +33,8 @@ def test_calls_only_the_rater_api():
     paths = {r.path for r in appmod.app.routes}
     assert {"/api/batch", "/api/rate/{code}", "/api/rate/{code}/draft", "/api/rate/{code}/submit",
             "/rate/{code}/media", "/rate"} <= paths
+
+
+def test_shows_the_build_tag_bug_reports_quote():
+    """The bug form (.github/ISSUE_TEMPLATE/bug_report.yml) asks for it."""
+    assert TEXT.count('<div class="build-tag">{{build}}</div>') == 1

@@ -1,0 +1,96 @@
+# The form testers and raters fill in when the rater app misbehaves.
+#
+# Modeled on relational-fluency's bug_report.yml, for the same reason: the
+# build tag (server/build_info.py, shown on the rating page) and the
+# time with its zone place a report against what was running. The form names
+# no site address: the stack was destroyed on 2026-11-08 and is to be deployed
+# again (#18).
+#
+# The rating code (RC- + 10 hex digits, docs/RATING.md) is what a report names
+# instead of a session or participant: it is derived per rater, so it says
+# which encounter without exposing step 1 references.
+#
+# tests/test_issue_template.py holds the required fields and the warnings.
+name: Bug report
+description: Something went wrong while signing in, in the queue, or while rating.
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thank you. Two things before you start:
+
+        - **This repository is public.** Do not paste participant names, email addresses, Prolific or Qualtrics ids, recordings, transcript text or screenshots showing a face.
+        - **Never paste a full page address.** Rater links carry your personal token (`token=...`) and researcher links carry the key (`key=...`). Copy only the parts asked for below.
+  - type: input
+    id: build
+    attributes:
+      label: Build
+      description: >-
+        The small 7-character code at the bottom of the rating page. If you
+        are running the app on your own computer and the page shows none,
+        write "local". Write "unknown" if you cannot tell.
+      placeholder: cbed27e
+    validations:
+      required: true
+  - type: dropdown
+    id: page
+    attributes:
+      label: Where it happened
+      options:
+        - Opening my rater link (sign-in)
+        - Getting my recordings (the batch)
+        - Rating a conversation (recording, transcript, items)
+        - Saving or submitting a rating
+        - The tour or instructions
+        - Somewhere else
+    validations:
+      required: true
+  - type: input
+    id: rating_code
+    attributes:
+      label: Rating code
+      description: >-
+        The code of the conversation you were rating, as the queue shows it
+        (RC- and 10 characters). Write "none" if you were not rating one.
+      placeholder: RC-3f9a0c12be
+    validations:
+      required: true
+  - type: input
+    id: environment
+    attributes:
+      label: Browser and operating system
+      description: With versions if you know them.
+      placeholder: Chrome 131 on macOS 15.3
+    validations:
+      required: true
+  - type: input
+    id: when
+    attributes:
+      label: Date and time, with time zone
+      description: >-
+        When it happened, not when you are filing this. The time zone matters:
+        it is how a report is placed against deploys.
+      placeholder: 2026-11-18 15:40 ET
+    validations:
+      required: true
+  - type: textarea
+    id: what_happened
+    attributes:
+      label: What happened
+      description: What you did and what you saw, in order.
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: What you expected
+    validations:
+      required: true
+  - type: textarea
+    id: more
+    attributes:
+      label: Anything else
+      description: How often it happens, steps to make it happen again, what you tried.
+    validations:
+      required: false

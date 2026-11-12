@@ -14,9 +14,14 @@
 #      never applies)
 #   4. tofu -chdir=infra/terraform apply tfplan.bin, then check /health "build"
 #
-# deployed: nothing yet. No image has been pushed and no task definition
-#   exists; with container_image empty the stack creates no task definition and
-#   no service (ecs.tf). First deploy: docs/DEPLOY-AWS.md, "First deploy".
+# deployed: nothing. The stack was applied and cbed27e ran as
+#   relational-fluency-rater-app:1 on 2026-11-08, then the whole stack was
+#   destroyed the same evening (43 resources). On 2026-11-10 the team decided
+#   the rater does run as a site of its own, so it is to be deployed again
+#   (#18). State rater/terraform.tfstate is empty; the KMS key and the
+#   researcher-key secret are pending deletion; the ECR images and the GitHub
+#   build role were deleted. The new deploy starts again from
+#   docs/DEPLOY-AWS.md, "First deploy".
 container_image = ""
 
 # Retention: rater_data_retention_days defaults to 0 = no expiration rule. It is

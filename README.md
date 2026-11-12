@@ -37,10 +37,10 @@ flowchart LR
 | Who | Link |
 |---|---|
 | Rater | the personal link `https://rater.ai-ready-workforce.ai.cornell.edu/rate?token=…` from `POST /api/raters`; afterwards `https://rater.ai-ready-workforce.ai.cornell.edu/rate` |
-| Researcher, create a rater / progress / export | `POST /api/raters`, `GET /api/coverage`, `GET /api/assignments`, `GET /api/ratings?format=csv`, all with `?key=RESEARCHER_KEY` ([runbook](docs/RATING.md#researcher-runbook)) |
+| Researcher, create a rater / progress / export | `POST /api/raters`, `GET /api/coverage`, `GET /api/assignments`, `GET /api/ratings?format=csv`, all with the `X-Researcher-Key` header ([runbook](docs/RATING.md#researcher-runbook)) |
 | Participant, from Qualtrics (earlier design, still served) | `https://rater.ai-ready-workforce.ai.cornell.edu/start?pid=${e://Field/participantId}&qid=${e://Field/ResponseID}` |
-| Researcher, Qualtrics entry records | `https://rater.ai-ready-workforce.ai.cornell.edu/api/entries?key=RESEARCHER_KEY` |
-| Researcher, one participant's step 1 encounters | `https://rater.ai-ready-workforce.ai.cornell.edu/api/step1/participants/KEY/encounters?key=RESEARCHER_KEY` |
+| Researcher, Qualtrics entry records | `https://rater.ai-ready-workforce.ai.cornell.edu/api/entries` with the `X-Researcher-Key` header |
+| Researcher, one participant's step 1 encounters | `https://rater.ai-ready-workforce.ai.cornell.edu/api/step1/participants/KEY/encounters` with the `X-Researcher-Key` header |
 | Anyone, health and build | `https://rater.ai-ready-workforce.ai.cornell.edu/health` |
 
 ## Run it locally

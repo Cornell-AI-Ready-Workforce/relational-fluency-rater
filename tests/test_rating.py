@@ -21,8 +21,8 @@ SCENARIOS = ["S1A", "S2A", "S3B", "S4A"]
 
 def _record(names=("riley",)):
     """Two conversations: the participant and the first character, then the second."""
-    t = [{"t": 3.0, "role": "participant", "text": "Hey, Riley. What's up?"},
-         {"t": 8.0, "role": "agent", "agent_id": names[0], "text": "We need to talk.",
+    t = [{"t": 3.0, "role": "participant", "text": "Hey, Riley. What's up?", "spoken_at": 1.5},
+         {"t": 8.0, "role": "agent", "agent_id": names[0], "text": "We need to talk.", "heard_at": 5.0,
           "esci": ["de_escalate"], "stage_direction": "secret", "trigger_id": "t1"},
          {"t": 20.0, "role": "participant", "text": "I'd rather talk to Sam", "interrupted": True},
          {"t": 30.0, "role": "participant", "text": ""},
@@ -127,6 +127,7 @@ def test_sign_in_serves_the_rating_screen_and_bad_token_does_not(client):
     page = client.get("/rate")
     assert page.status_code == 200 and "/api/batch" in page.text
     assert page.headers["cache-control"] == "no-store"
+    assert "{{build}}" not in page.text  # filled in, even when the build is unknown
     assert client.get("/api/batch").json() == {"rater_id": "R-07", "batch": None, "stages": [],
                                                "done": False, "completion_code": None}
 
@@ -258,6 +259,7 @@ def test_rating_screen_is_blind_and_asks_the_constructs_items(client):
     assert d["duration"] == 60.0 and d["parts"] == 2
     tr = d["transcript"]
     assert [x["part"] for x in tr] == [0, 0, 0, 0, 1]
+    assert [x["t"] for x in tr] == [1.5, 5.0, 20.0, 30.0, 40.0]  # when said, else when transcribed
     assert tr[2]["note"] == "line cut off" and tr[0]["participant"] and not tr[1]["participant"]
     assert {x["who"] for x in tr} <= {"Participant", "Character", "Character 1", "Character 2"}
     assert client.get("/api/rate/RC-0000000000").status_code == 404
@@ -339,7 +341,7 @@ def test_draft_examples_and_submit_once_in_order(client):
     a = {x["code"]: x for x in client.get(f"/api/assignments?key={RK}").json()["assignments"]}
     assert rec["kind"] == "rating" and rec["step1"] == a[codes[0]]["step1"] and rec["cohort"] == "study"
     assert rec["data"]["scores"] == full["scores"] and rec["data"]["comments"]["other"] == "fine"
-    assert rec["data"]["examples"][k0] == [{"line": 0, "t": 3.0, "text": "Hey, Riley. What's up?"}]
+    assert rec["data"]["examples"][k0] == [{"line": 0, "t": 1.5, "text": "Hey, Riley. What's up?"}]
     assert rec["data"]["construct"] == a[codes[0]]["construct"] and rec["data"]["stage"] == 1
     assert rec["data"]["media_kind"] == "audio" and len(rec["data"]["item_order"]) == len(d["items"])
     # a 1 needs no example, and examples given with it are not kept
