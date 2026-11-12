@@ -14,7 +14,7 @@ TEXT = PAGE.read_text(encoding="utf-8")
 
 def test_is_the_page_rate_serves():
     assert appmod.RATE_PAGE == PAGE
-    assert '<html lang="en">' in TEXT and 'name="robots" content="noindex, nofollow"' in TEXT
+    assert '<html lang="en" data-theme="light">' in TEXT and 'name="robots" content="noindex, nofollow"' in TEXT
 
 
 def test_no_third_party_requests():
