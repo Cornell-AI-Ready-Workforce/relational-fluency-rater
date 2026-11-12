@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="en">
+<html lang="en" data-theme="light">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -453,6 +453,18 @@ h1, h2, h3 { letter-spacing: -0.011em; }
 .score-pill { background: var(--screen); color: var(--screen-ink); }
 .tour-card { border-radius: var(--r); }
 
+/* Wide screens: the recordings card is a column on the left, so the recording,
+   transcript and questions get the full height of the window. */
+@media (min-width: 1101px) {
+  .app { display: grid; grid-template-columns: 236px minmax(0, 1fr); column-gap: 16px; align-items: start; }
+  .side { position: sticky; top: 16px; flex-direction: column; flex-wrap: nowrap; align-items: stretch; gap: 14px; padding: 16px 12px; }
+  .side-top { padding: 0 4px; }
+  .nav-list { display: grid; gap: 4px; flex: 0 0 auto; }
+  .nav-item { width: 100%; }
+  .nav-code { display: grid; }
+  .side-foot { margin: 0; padding: 0 6px; }
+  .enc-head { padding-top: 2px; }
+}
 @media (max-width: 900px) {
   .app { padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); }
   .side { padding: 12px 14px; }
