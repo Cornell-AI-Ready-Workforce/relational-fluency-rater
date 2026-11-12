@@ -18,7 +18,7 @@ The app picks them (`allocate_batch` in [`server/rating.py`](../server/rating.py
 
 - **Every recording is rated twice** (`RATINGS_PER_SESSION`), by two different raters.
 - **A rater never gets two recordings of the same participant**, in one batch or across batches. So the four stages are four different people, and a participant's four recordings, rated twice each, go to eight different raters.
-- Only encounters with a participant key, a scenario id this app knows (`S1A` to `S4B`), a cohort in `RATE_COHORTS` (`study` unless set) and a recording.
+- Only encounters with a participant key, a scenario id this app knows (`S1A` to `S4B`), a cohort in `RATE_COHORTS` (`study` unless set; on the deployed site it is `rate_cohorts` in `infra/terraform/terraform.tfvars`) and a recording.
 - The least-rated recordings first, at random among equals.
 - When fewer than four are left that this rater may have, the batch is shorter; when none are, the screen says there is nothing to rate.
 

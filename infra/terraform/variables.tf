@@ -33,6 +33,12 @@ variable "desired_count" {
   default     = 1
 }
 
+variable "rate_cohorts" {
+  description = "RATE_COHORTS: the step 1 cohorts whose encounters are handed out to raters, comma-separated. \"study\" is the real collection; \"internal\" is the team's own test runs, for trying the site before there are study sessions."
+  type        = string
+  default     = "study"
+}
+
 # --- step 1, read only ---------------------------------------------------------------
 
 variable "step1_bucket" {

@@ -14,18 +14,21 @@
 #      never applies)
 #   4. tofu -chdir=infra/terraform apply tfplan.bin, then check /health "build"
 #
-# deployed: nothing yet; this is the FIRST release on the rebuilt stack. The
-#   stack of 2026-11-08 (cbed27e as relational-fluency-rater-app:1) was
-#   destroyed that evening. On 2026-11-12 the base stack was applied again
-#   from main b6d3777 with container_image = "": 41 resources, no task
-#   definition and no service (checked: `tofu state list`, and ECS shows no
-#   service on cluster relational-fluency-rater). The researcher-key secret is
-#   the 2026-11-08 one, restored from pending deletion and imported, with its
-#   value intact; the KMS key and the bucket are new. b6d3777 was built by
-#   build-image run 43173382945 and is in ECR relational-fluency-rater/app.
+# deployed: relational-fluency-rater-app:2 carries b6d3777, the first release
+#   on the rebuilt stack (pin #30), applied 2026-11-12. Checked that day:
+#   rollout COMPLETED with one task, target healthy, and
+#   https://rater.ai-ready-workforce.ai.cornell.edu/health answers
+#   "build":"b6d3777". The image does not change in this commit; only
+#   rate_cohorts below does, which makes a new task-definition revision.
 container_image = "540586745717.dkr.ecr.us-east-1.amazonaws.com/relational-fluency-rater/app:b6d3777"
 
 # Retention: rater_data_retention_days defaults to 0 = no expiration rule. It is
 # the PI's decision; to expire records, set a positive number here, in a commit:
 #
 #   rater_data_retention_days = ...
+
+# Which step 1 cohorts raters are given. TESTING VALUE: "internal" is the
+# team's own test runs (15 usable recordings on 2026-11-12, audio only), set so
+# the site can be tried before step 1 has study sessions. Set it back to
+# "study" (or delete the line) before real raters are created.
+rate_cohorts = "internal"
