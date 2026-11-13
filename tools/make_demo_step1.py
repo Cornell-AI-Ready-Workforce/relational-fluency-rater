@@ -79,10 +79,14 @@ def make(root: Path, participants: int, video: Path | None = None) -> list:
                         "ended_at": started + c["duration"], "n_turns": len(c["record"]["transcript"])}
             record = {"encounter_id": sid, "scenario": c["scenario"], "participant_key": pk,
                       "run_id": run_id, "cohort": "internal", **c["record"],
-                      "audio": {"participant": "user_audio.wav"}}
+                      "audio": {"participant": "user_audio.wav",
+                                "conversation": "conversation_audio.wav"}}
             (d / "manifest.json").write_text(json.dumps(manifest, indent=1))
             (d / "record.json").write_text(json.dumps(record, indent=1, ensure_ascii=False))
             _place(wavs[c["scenario"]], d / "user_audio.wav")
+            # Stands in for step 1's mix: an encounter with the participant's
+            # microphone alone is not given out.
+            _place(wavs[c["scenario"]], d / "conversation_audio.wav")
             if video:
                 _place(video, d / "webcam.webm")
             made.append(sid)
