@@ -14,12 +14,12 @@
 #      never applies)
 #   4. tofu -chdir=infra/terraform apply tfplan.bin, then check /health "build"
 #
-# deployed: relational-fluency-rater-app:2 carries b6d3777, the first release
-#   on the rebuilt stack (pin #30), applied 2026-11-12. Checked that day:
-#   rollout COMPLETED with one task, target healthy, and
+# deployed: relational-fluency-rater-app:3 carries b6d3777 with
+#   RATE_COHORTS=internal (#31), applied 2026-11-12. Checked that day:
 #   https://rater.ai-ready-workforce.ai.cornell.edu/health answers
-#   "build":"b6d3777". The image does not change in this commit; only
-#   rate_cohorts below does, which makes a new task-definition revision.
+#   "build":"b6d3777" and the test rater was handed a batch. The image does
+#   not change in this commit; only rate_cohorts below does, which makes a new
+#   task-definition revision.
 container_image = "540586745717.dkr.ecr.us-east-1.amazonaws.com/relational-fluency-rater/app:b6d3777"
 
 # Retention: rater_data_retention_days defaults to 0 = no expiration rule. It is
@@ -27,8 +27,11 @@ container_image = "540586745717.dkr.ecr.us-east-1.amazonaws.com/relational-fluen
 #
 #   rater_data_retention_days = ...
 
-# Which step 1 cohorts raters are given. TESTING VALUE: "internal" is the
-# team's own test runs (15 usable recordings on 2026-11-12, audio only), set so
-# the site can be tried before step 1 has study sessions. Set it back to
-# "study" (or delete the line) before real raters are created.
-rate_cohorts = "internal"
+# Which step 1 cohorts raters are given. TESTING VALUE: "unattributed" is the
+# runs that arrived on a participant link without a valid participant id (42
+# recordings on 2026-11-12, 30 of them webcam video with every voice). The
+# "internal" test runs have only the participant's microphone, so they cannot
+# show the video player or the characters' voices. Approved by Jennie for
+# testing the site on 2026-11-12. Set it back to "study" (or delete the line)
+# before real raters are created.
+rate_cohorts = "unattributed"
