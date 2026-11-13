@@ -14,13 +14,13 @@
 #      never applies)
 #   4. tofu -chdir=infra/terraform apply tfplan.bin, then check /health "build"
 #
-# deployed: relational-fluency-rater-app:3 carries b6d3777 with
-#   RATE_COHORTS=internal (#31), applied 2026-11-12. Checked that day:
+# deployed: relational-fluency-rater-app:4 carries b6d3777 with
+#   RATE_COHORTS=unattributed (#33), applied 2026-11-12. Checked that day:
 #   https://rater.ai-ready-workforce.ai.cornell.edu/health answers
-#   "build":"b6d3777" and the test rater was handed a batch. The image does
-#   not change in this commit; only rate_cohorts below does, which makes a new
-#   task-definition revision.
-container_image = "540586745717.dkr.ecr.us-east-1.amazonaws.com/relational-fluency-rater/app:b6d3777"
+#   "build":"b6d3777" and a test rater's batch held webcam video with sound.
+#   This commit pins 6a744b0 (main with #34: empty and microphone-only
+#   recordings are not given out).
+container_image = "540586745717.dkr.ecr.us-east-1.amazonaws.com/relational-fluency-rater/app:6a744b0"
 
 # Retention: rater_data_retention_days defaults to 0 = no expiration rule. It is
 # the PI's decision; to expire records, set a positive number here, in a commit:
