@@ -711,8 +711,10 @@ def api_assignments_list(key: Optional[str] = Depends(researcher_key), rater_id:
 
 @app.get("/api/coverage")
 def api_coverage(key: Optional[str] = Depends(researcher_key)) -> dict:
-    """Every encounter that may be given out, with how many raters have it and
-    how many have submitted, against RATINGS_PER_SESSION."""
+    """Every encounter in the cohorts being rated, with how many raters have it
+    and how many have submitted, against RATINGS_PER_SESSION. "rateable" is
+    false for one that is not given out: empty, or the participant's microphone
+    alone (source.rateable). "count" and "fully_rated" count the rateable ones."""
     check_key(key)
     store, src = _store.get_store(), _source.get_source()
     given = _rating.slot_counts(store)
@@ -724,13 +726,16 @@ def api_coverage(key: Optional[str] = Depends(researcher_key)) -> dict:
     cohorts = _rating.rate_cohorts()
     rows = [{"session_id": e["session_id"], "participant_key": e["participant_key"],
              "scenario": e.get("scenario"), "cohort": e.get("cohort"),
-             "given": given.get(e["session_id"], 0), "rated": rated.get(e["session_id"], 0)}
+             "given": given.get(e["session_id"], 0), "rated": rated.get(e["session_id"], 0),
+             "rateable": src.rateable(e["session_id"])}
             for e in sorted(src.index().values(),
                             key=lambda e: (e.get("participant_key") or "", e.get("encounter_index") or 0))
             if _rating.eligible(e, cohorts)]
     need = _rating.RATINGS_PER_SESSION
-    return {"ratings_per_session": need, "cohorts": list(cohorts), "count": len(rows),
-            "fully_rated": sum(r["rated"] >= need for r in rows), "sessions": rows}
+    ok = [r for r in rows if r["rateable"]]
+    return {"ratings_per_session": need, "cohorts": list(cohorts), "count": len(ok),
+            "not_rateable": len(rows) - len(ok),
+            "fully_rated": sum(r["rated"] >= need for r in ok), "sessions": rows}
 
 
 @app.get("/api/ratings")

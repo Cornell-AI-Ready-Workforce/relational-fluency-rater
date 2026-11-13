@@ -45,7 +45,7 @@ The rating code is derived from the rater id and the session id, so the same enc
 
 ## The recording
 
-The webcam recording (`webcam.webm`, the camera with the whole conversation's audio) when the browser uploaded one. Else step 1's mix of the conversation (`conversation_audio.wav`) where the archive has it, else the participant's own channel (`user_audio.wav`), where the characters are only in the transcript. An encounter with none of these is not given out. The transcript's times are step 1's session clock; the webcam recording starts when the camera does, which can be a second or two later. The app proxies the file from step 1's bucket with `Range` support, so the browser seeks normally and the bucket is never addressed from the browser.
+The webcam recording (`webcam.webm`, the camera with the whole conversation's audio) when the browser uploaded one. Else step 1's mix of the conversation (`conversation_audio.wav`) where the archive has it, else the participant's own channel (`user_audio.wav`), where the characters are only in the transcript. Only an encounter with every voice in its recording (the webcam recording or the mix) and at least one participant line with words is given out: one with the participant's microphone alone, one with no recording, and an empty one (a session opened and closed) are skipped. The microphone-only file is still played for an encounter a rater was given before this rule. `/api/coverage` marks the skipped ones `"rateable": false`. The transcript's times are step 1's session clock; the webcam recording starts when the camera does, which can be a second or two later. The app proxies the file from step 1's bucket with `Range` support, so the browser seeks normally and the bucket is never addressed from the browser.
 
 ## Where it is stored
 
@@ -89,7 +89,7 @@ curl -s "${R[@]}" "$H/api/ratings?format=csv"        # long format, one row per 
 
 ## Local development
 
-Step 1's local data is usually a team test run or two, too few people to fill a batch. [`tools/make_demo_step1.py`](../tools/make_demo_step1.py) writes made-up participants (the prototype's four example conversations, a quiet WAV with a tone at each participant line, or `--video` with a webm of your own) in step 1's layout, in cohort `internal`:
+Step 1's local data is usually a team test run or two, too few people to fill a batch. [`tools/make_demo_step1.py`](../tools/make_demo_step1.py) writes made-up participants (the prototype's four example conversations, a quiet WAV with a tone at each participant line, placed as the conversation mix, or `--video` with a webm of your own) in step 1's layout, in cohort `internal`:
 
 ```bash
 python -m tools.make_demo_step1 data/demo-step1            # six made-up participants, 24 encounters

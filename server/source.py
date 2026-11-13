@@ -201,6 +201,8 @@ class Step1Source:
     # audio.conversation, conversation_audio.wav, in archives since that was
     # added), else the participant's own channel (audio.participant,
     # user_audio.wav), where the characters are heard only in the transcript.
+    # That last one is played for an encounter a rater already has, and is not
+    # given out any more (rateable).
 
     VIDEO_NAME = "webcam.webm"
 
@@ -229,17 +231,37 @@ class Step1Source:
         return out
 
     def media_choice(self, session_id: str) -> Optional[Dict[str, Any]]:
-        """{"name", "kind": video|audio, "content_type", "size"} or None."""
+        """{"name", "kind": video|audio, "content_type", "size", "whole"} or None.
+
+        "whole" says the file carries every voice of the conversation. The
+        participant's own channel does not: the characters are silent in it."""
         files = self.media_files(session_id)
         if self.VIDEO_NAME in files:
             return {"name": self.VIDEO_NAME, "kind": "video", "content_type": "video/webm",
-                    "size": files[self.VIDEO_NAME]}
+                    "size": files[self.VIDEO_NAME], "whole": True}
         audio = (self.record(session_id) or {}).get("audio") or {}
-        for wanted in (audio.get("conversation"), audio.get("participant") or "user_audio.wav"):
+        for wanted, whole in ((audio.get("conversation"), True),
+                              (audio.get("participant") or "user_audio.wav", False)):
             if isinstance(wanted, str) and wanted in files and wanted.endswith(".wav"):
                 return {"name": wanted, "kind": "audio", "content_type": "audio/wav",
-                        "size": files[wanted]}
+                        "size": files[wanted], "whole": whole}
         return None
+
+    def rateable(self, session_id: str) -> bool:
+        """Whether an encounter is worth giving to a rater: a recording with
+        every voice in it, and a participant who said something.
+
+        Two kinds are left out. One where only the participant's microphone was
+        kept (no webcam recording and no mix), because the rater would hear half
+        a conversation. And an empty one, where the transcript has no participant
+        line with words (a session opened and closed), because there is no
+        behaviour to rate. An encounter already given out is still served."""
+        choice = self.media_choice(session_id)
+        if not choice or not choice.get("whole"):
+            return False
+        turns = (self.record(session_id) or {}).get("transcript") or []
+        return any(isinstance(t, dict) and t.get("role") in ("participant", "user")
+                   and str(t.get("text") or "").strip() for t in turns)
 
     def media_local_path(self, session_id: str, name: str) -> Optional[Path]:
         """The file on disk (local source only), for a range-capable file response."""

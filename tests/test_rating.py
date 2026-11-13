@@ -44,9 +44,11 @@ def make_step1(root, participants=5, *, media=True):
             m = step1_fixture.manifest(sid, pk=pk, run_id=run, idx=i + 1, scenario=scen)
             m["started_at"], m["ended_at"] = 1000.0, 1060.0
             (d / "manifest.json").write_text(json.dumps(m))
-            (d / "record.json").write_text(json.dumps(_record(("riley", "sam") if i == 0 else ("morgan",))))
+            rec = _record(("riley", "sam") if i == 0 else ("morgan",))
+            rec["audio"] = {"participant": "user_audio.wav", "conversation": "conversation_audio.wav"}
+            (d / "record.json").write_text(json.dumps(rec))
             if media:
-                (d / "user_audio.wav").write_bytes(b"RIFF" + bytes(range(256)) * 8)
+                (d / "conversation_audio.wav").write_bytes(b"RIFF" + bytes(range(256)) * 8)
             sids[sid] = (pk, scen)
     return sids
 
@@ -207,9 +209,12 @@ def test_only_eligible_encounters_are_given_out(step1, monkeypatch):
         d = root / "sessions" / sid
         d.mkdir()
         (d / "manifest.json").write_text(json.dumps(step1_fixture.manifest(sid, **kw)))
-        (d / "user_audio.wav").write_bytes(b"RIFF")
+        rec = _record(("morgan",))
+        rec["audio"] = {"participant": "user_audio.wav", "conversation": "conversation_audio.wav"}
+        (d / "record.json").write_text(json.dumps(rec))
+        (d / "conversation_audio.wav").write_bytes(b"RIFF")
     for sid in list(sids)[:4]:
-        (root / "sessions" / sid / "user_audio.wav").unlink()
+        (root / "sessions" / sid / "conversation_audio.wav").unlink()
     src.index(refresh=True)
     rating.new_rater(st, "R-01")
     got = set()
@@ -284,13 +289,42 @@ def test_conversation_audio_is_preferred_to_the_participants(step1):
     sid = next(iter(sids))
     d = root / "sessions" / sid
     rec = json.loads((d / "record.json").read_text())
-    rec["audio"] = {"participant": "user_audio.wav", "conversation": "conversation_audio.wav"}
-    (d / "record.json").write_text(json.dumps(rec))
-    assert source.get_source().media_choice(sid)["name"] == "user_audio.wav"
+    src = source.get_source()
+    (d / "conversation_audio.wav").unlink()
+    (d / "user_audio.wav").write_bytes(b"RIFF")
+    mic = src.media_choice(sid)
+    assert mic["name"] == "user_audio.wav" and mic["whole"] is False
     (d / "conversation_audio.wav").write_bytes(b"RIFF")
-    assert source.get_source().media_choice(sid)["name"] == "conversation_audio.wav"
+    mix = src.media_choice(sid)
+    assert mix["name"] == "conversation_audio.wav" and mix["whole"] is True
     (d / "webcam.webm").write_bytes(b"\x1aE")
-    assert source.get_source().media_choice(sid)["kind"] == "video"
+    cam = src.media_choice(sid)
+    assert cam["kind"] == "video" and cam["whole"] is True
+
+
+def test_mic_only_and_empty_encounters_are_not_given_out(step1):
+    root, sids = step1
+    st, src = store.get_store(), source.get_source()
+    by_pk = {}
+    for sid, (pk, _) in sids.items():
+        by_pk.setdefault(pk, []).append(sid)
+    pks = sorted(by_pk)
+    # one person's recordings are the participant's microphone alone
+    for sid in by_pk[pks[0]]:
+        d = root / "sessions" / sid
+        (d / "conversation_audio.wav").rename(d / "user_audio.wav")
+        assert src.media_choice(sid)["name"] == "user_audio.wav" and not src.rateable(sid)
+    # another's are empty: a recording, and no participant line with words
+    for sid in by_pk[pks[1]]:
+        d = root / "sessions" / sid
+        rec = json.loads((d / "record.json").read_text())
+        rec["transcript"] = [t for t in rec["transcript"] if t.get("role") not in ("participant", "user")]
+        (d / "record.json").write_text(json.dumps(rec))
+        assert src.media_choice(sid) and not src.rateable(sid)
+    rating.new_rater(st, "R-01")
+    batch = rating.allocate_batch(st, src, "R-01")
+    got = {a["step1"]["participant_key"] for a in batch}
+    assert len(batch) == 3 and not got & {pks[0], pks[1]}
 
 
 def answers(d, score=3):

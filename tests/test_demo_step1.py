@@ -14,7 +14,7 @@ def test_demo_data_fills_a_batch(tmp_path, monkeypatch):
     idx = src.index()
     assert len(idx) == 16 and {e["scenario"] for e in idx.values()} == {"S1A", "S2A", "S3A", "S4A"}
     sid = sorted(idx)[0]
-    assert src.media_choice(sid)["name"] == "user_audio.wav"
+    assert src.media_choice(sid)["name"] == "conversation_audio.wav"
     assert src.transcript(sid)["turns"]
     st = store.RecordStore(local_dir=tmp_path / "records")
     rating.new_rater(st, "R-01")

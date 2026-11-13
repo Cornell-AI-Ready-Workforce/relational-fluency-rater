@@ -15,7 +15,8 @@ are submitted. The picking rules (allocate_batch):
     across batches, so a participant's four recordings, rated twice each, go
     to eight raters;
   - only encounters with a participant key, a scenario this app knows, a
-    cohort in RATE_COHORTS (default "study") and a recording;
+    cohort in RATE_COHORTS (default "study"), a recording with every voice in
+    it (not the participant's microphone alone) and a participant who spoke;
   - the least-rated recordings first, at random among equals.
 
 A recording's ratings are counted by SLOTS, slots/<session_id>/<n>.json for
@@ -268,7 +269,7 @@ def allocate_batch(store: RecordStore, source, rater_id: str,
             if len(chosen) == STAGES_PER_BATCH:
                 break
             sid, pk = e["session_id"], e["participant_key"]
-            if pk in seen or source.media_choice(sid) is None:
+            if pk in seen or not source.rateable(sid):
                 continue
             code = make_code(rater_id, sid)
             if not _claim_slot(store, sid, counts.get(sid, 0), rater_id, code):
