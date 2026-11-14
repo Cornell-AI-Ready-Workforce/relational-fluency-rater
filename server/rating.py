@@ -330,9 +330,13 @@ MAX_EXAMPLES = 20
 MAX_CLIP_END_S = 4 * 3600.0
 
 
-def _example(x: Any, lines: Dict[int, Dict[str, Any]]) -> Optional[Dict[str, Any]]:
-    """{"line": i} (a participant line of the transcript) or {"clip": [a, b]}
-    in seconds; with the line's time and text kept beside it."""
+def _example(x: Any, lines: Dict[int, Dict[str, Any]], video: bool = False) -> Optional[Dict[str, Any]]:
+    """{"line": i} (a participant line of the transcript), {"clip": [a, b]} in
+    seconds, or {"shot": t}, a screenshot: one moment of the video, in seconds,
+    taken only when the recording has a picture. A line keeps its time and text
+    beside it. A screenshot is stored as its moment, not as an image: the frame
+    is in step 1's recording at that second, so no picture of a participant is
+    copied into this app's bucket."""
     if isinstance(x, dict) and set(x) == {"line"}:
         i = x["line"]
         if isinstance(i, int) and not isinstance(i, bool) and i in lines:
@@ -342,15 +346,20 @@ def _example(x: Any, lines: Dict[int, Dict[str, Any]]) -> Optional[Dict[str, Any
         if all(isinstance(v, (int, float)) and not isinstance(v, bool) for v in (a, b)) \
                 and 0 <= a and b - a >= 1 and b <= MAX_CLIP_END_S:
             return {"clip": [round(float(a), 1), round(float(b), 1)]}
+    if video and isinstance(x, dict) and set(x) == {"shot"}:
+        t = x["shot"]
+        if isinstance(t, (int, float)) and not isinstance(t, bool) and 0 <= t <= MAX_CLIP_END_S:
+            return {"shot": round(float(t), 1)}
     return None
 
 
 def validate_submission(payload: Any, *, keys: List[str], lines: Dict[int, Dict[str, Any]],
-                        complete: bool) -> Tuple[Dict[str, int], Dict[str, List], Dict[str, str]]:
+                        complete: bool, video: bool = False) -> Tuple[Dict[str, int], Dict[str, List], Dict[str, str]]:
     """(scores, examples, comments) for one encounter's items.
 
     `keys` are the encounter's items, `lines` the participant lines that may be
-    given as examples (transcript index -> row). With complete=True every item
+    given as examples (transcript index -> row), `video` whether the recording
+    has a picture, so a screenshot may be one. With complete=True every item
     must be scored and every score of 2 to 5 have an example."""
     if not isinstance(payload, dict):
         raise RatingError("body must be a JSON object")
@@ -376,10 +385,11 @@ def validate_submission(payload: Any, *, keys: List[str], lines: Dict[int, Dict[
             raise RatingError(f"item {k!r}: examples must be a list of at most {MAX_EXAMPLES}")
         out = []
         for x in xs:
-            ex = _example(x, lines)
+            ex = _example(x, lines, video)
             if ex is None:
                 raise RatingError(f"item {k!r}: an example is {{\"line\": n}} for a participant "
-                                  f"line, or {{\"clip\": [start, end]}} in seconds")
+                                  f"line, {{\"clip\": [start, end]}} in seconds, or "
+                                  f"{{\"shot\": seconds}} when the recording is a video")
             out.append(ex)
         if out:
             examples[k] = out
