@@ -14,13 +14,13 @@
 #      never applies)
 #   4. tofu -chdir=infra/terraform apply tfplan.bin, then check /health "build"
 #
-# deployed: relational-fluency-rater-app:6 carries 6aa1dec with
-#   RATE_COHORTS=unattributed (#36), applied 2026-11-14. Checked that day:
+# deployed: relational-fluency-rater-app:7 carries 88c3982 with
+#   RATE_COHORTS=unattributed (#38), applied 2026-11-14. Checked that day:
 #   https://rater.ai-ready-workforce.ai.cornell.edu/health answers
-#   "build":"6aa1dec" and the served rating page has Add a screenshot.
-#   This commit pins 88c3982 (main with #38: server/identity.py re-copied
-#   from step 1; nothing a rater sees changes).
-container_image = "540586745717.dkr.ecr.us-east-1.amazonaws.com/relational-fluency-rater/app:88c3982"
+#   "build":"88c3982"; a test rater's 317-second recording showed 0:07 / 0:07.
+#   This commit pins c1b02b5 (main with #40: a partial length from the
+#   browser is not taken as the recording's).
+container_image = "540586745717.dkr.ecr.us-east-1.amazonaws.com/relational-fluency-rater/app:c1b02b5"
 
 # Retention: rater_data_retention_days defaults to 0 = no expiration rule. It is
 # the PI's decision; to expire records, set a positive number here, in a commit:
