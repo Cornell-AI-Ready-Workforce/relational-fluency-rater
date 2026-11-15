@@ -87,14 +87,14 @@ def test_run_id_and_stored_key():
         assert not cv.valid_stored_participant_key(k)
 
 
-# Computed with relational-fluency@f9947d2:server/identity.py. Step 1 calls
+# Computed with relational-fluency@885a862:server/identity.py. Step 1 calls
 # assign() with the participant RECORD id (p_<n>_<hex>; server/session.py:80),
 # not with the survey key, so that is the input a caller here must use too.
 @pytest.mark.parametrize("key,construct,name,role", [
     ("p_1727000000_a1b2c3", "conflict_management", "Tatum", "senior analyst"),
     ("p_1_000000", "influence", "Reese", "senior analyst"),
     ("R_3kXyz123", "inspirational_leadership", "Peyton", "interim team lead"),
-    ("", "teamwork", "Reese", "project coordinator"),
+    ("", "teamwork", "Reese", "fourth member of the project team"),
     ("selftest1", "unknown_construct", "Reese", "team member"),
 ])
 def test_identity_assign_vectors(key, construct, name, role):
