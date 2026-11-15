@@ -38,3 +38,13 @@ def test_calls_only_the_rater_api():
 def test_shows_the_build_tag_bug_reports_quote():
     """The bug form (.github/ISSUE_TEMPLATE/bug_report.yml) asks for it."""
     assert TEXT.count('<div class="build-tag">{{build}}</div>') == 1
+
+
+def test_a_partial_length_from_the_browser_is_not_taken_as_the_recording_s():
+    """2026-11-14, live: a 317-second recording still loading reported 7 seconds, and the bar and
+    its marks were drawn for 7 seconds. The length is checked against the transcript, later
+    corrections are taken, and playing past the length shown extends it."""
+    assert "if (trustedLength(media.duration)) g.duration = media.duration;" in TEXT
+    assert "else if (trustedLength(media.duration)) setLength(media.duration);" in TEXT
+    assert "if (media.currentTime > G().duration) setLength(media.currentTime);" in TEXT
+    assert "if (media.duration > 0 && Number.isFinite(media.duration)) g.duration = media.duration;" not in TEXT

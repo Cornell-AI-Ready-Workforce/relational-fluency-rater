@@ -1275,11 +1275,25 @@ h1, h2, h3 { letter-spacing: -0.011em; }
     media.currentTime = 1e101;
   });
   media.addEventListener('durationchange', () => {
-    if (fixingLength && Number.isFinite(media.duration)) { fixingLength = false; gotLength(); }
+    if (!Number.isFinite(media.duration)) return;
+    if (fixingLength) { fixingLength = false; gotLength(); }
+    else if (trustedLength(media.duration)) setLength(media.duration); // the browser may correct itself as more loads
   });
+  // While a recording is still loading, a browser can report the length of the part it has so far (7 seconds
+  // of a 5-minute video). The last transcript line was said in the recording, so a length that ends before it
+  // is not the recording's; the app's own length (step 1's start and end) stays until a believable one arrives.
+  const trustedLength = (d) => { const tu = G().turns; return Number.isFinite(d) && d > 0 && d >= (tu.length ? tu[tu.length - 1].t : 0); };
+  function setLength(d) {
+    const g = G();
+    if (!(d > 0) || Math.abs(d - g.duration) < 0.05) return;
+    g.duration = d;
+    track.setAttribute('aria-valuemax', String(Math.round(g.duration)));
+    $('marks').innerHTML = marksHtml();
+    renderBands(); tick(true, false);
+  }
   function gotLength() {
     const g = G();
-    if (media.duration > 0 && Number.isFinite(media.duration)) g.duration = media.duration;
+    if (trustedLength(media.duration)) g.duration = media.duration;
     T().t = Math.min(T().t, g.duration);
     media.currentTime = T().t;
     track.setAttribute('aria-valuemax', String(Math.round(g.duration)));
@@ -1322,6 +1336,7 @@ h1, h2, h3 { letter-spacing: -0.011em; }
   const toggle = () => (playing ? pause() : play());
   function loop() {
     if (!playing) return;
+    if (media.currentTime > G().duration) setLength(media.currentTime); // playing past the length shown: the recording is longer
     T().t = Math.min(G().duration, media.currentTime);
     tick(false, true);
     raf = requestAnimationFrame(loop);
