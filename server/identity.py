@@ -1,4 +1,4 @@
-# Provenance: copied verbatim from relational-fluency@f9947d2:server/identity.py.
+# Provenance: copied verbatim from relational-fluency@885a862:server/identity.py.
 # Everything below the end marker is the old file byte for byte;
 # tests/test_parity.py compares it with the old repository. Re-copy, do not edit.
 # --- end provenance ---
@@ -32,7 +32,7 @@ ROLES: Dict[str, str] = {
     "conflict_management": "senior analyst",
     "influence": "senior analyst",
     "inspirational_leadership": "interim team lead",
-    "teamwork": "project coordinator",
+    "teamwork": "fourth member of the project team",
 }
 
 ORG = "a mid-sized company"
