@@ -519,10 +519,10 @@ def _example_lines(rows) -> Dict[int, Dict[str, Any]]:
 
 
 def _example_refs(examples: Any) -> Dict[str, Any]:
-    """Stored examples as the page sends them: {"line": i} or {"clip": [a, b]}."""
+    """Stored examples as the page sends them: {"line": i}, {"clip": [a, b]} or {"shot": t}."""
     out: Dict[str, Any] = {}
     for k, xs in (examples or {}).items():
-        out[k] = [{"line": x["line"]} if "line" in x else {"clip": x["clip"]} for x in xs]
+        out[k] = [{name: x[name]} for x in xs for name in ("line", "clip", "shot") if name in x]
     return out
 
 
@@ -582,13 +582,16 @@ def api_rate(code: str, request: Request) -> dict:
 def _validated(a: Dict[str, Any], rid: str, code: str, payload: Any, *, complete: bool):
     keys = [r["key"] for r in _rating.item_order(rid, code, a["data"].get("construct") or "")]
     try:
-        rows = _transcript_rows(a["step1"]["session_ids"][0])["rows"]
+        sid = a["step1"]["session_ids"][0]
+        rows = _transcript_rows(sid)["rows"]
+        media = _source.get_source().media_choice(sid)
     except Exception as exc:
         print(f"  ERROR: step 1 source unavailable for {code}: {type(exc).__name__}: {exc}")
         raise HTTPException(status_code=503, detail="Recordings are unavailable right now; try again shortly.")
     try:
         return _rating.validate_submission(payload, keys=keys, lines=_example_lines(rows),
-                                           complete=complete)
+                                           complete=complete,
+                                           video=bool(media) and media["kind"] == "video")
     except _rating.RatingError as exc:
         raise HTTPException(status_code=400, detail=str(exc))
 

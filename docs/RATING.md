@@ -7,7 +7,7 @@
 1. A researcher creates the rater and gets a one-time link (below).
 2. The rater opens the link once. The app sets a signed, HttpOnly session cookie (12 hours) and redirects to `/rate`, so the token leaves the address bar.
 3. `/rate` is the rating screen ([`static/rater/rate.html`](../static/rater/rate.html)). On a first visit it asks the app for a **batch** (`POST /api/batch`): up to four recordings, the four stages in the side menu, opened in order.
-4. Each stage: the recording, the transcript (click a time to jump there), the scenario's five or six questions one at a time, 1 Never to 5 Consistently. A score of 2 to 5 needs an example: a participant line from the transcript, or a clip of the recording. Answers are saved to the app as a draft as the rater goes; a reload, or another browser, resumes.
+4. Each stage: the recording, the transcript (click a time to jump there), the scenario's five or six questions one at a time, 1 Never to 5 Consistently. A score of 2 to 5 needs an example: a participant line from the transcript, a clip of the recording, or, when the recording is a video, a screenshot (Add a screenshot under the video keeps the moment showing). The app stores a screenshot as its moment in seconds, not as an image; the page draws the small still from the recording, and a researcher gets the same frame from step 1's `webcam.webm` at that second. Answers are saved to the app as a draft as the rater goes; a reload, or another browser, resumes.
 5. A review page, then Submit. A recording is submitted once, and only after the ones before it. After the last, the rater gets a **completion code** (`RFR-XXXX-XXXX`), and can ask for another batch.
 
 A rater who recognises a participant is told to stop and contact the study team.
@@ -57,7 +57,7 @@ This app's bucket, under prefixes `server/store.py` and `infra/terraform/storage
 | `assignments/<rater>/` | rating code | the step 1 references (participant key, session id, run id, cohort), batch, stage, scenario, construct, completion code, status, done_at |
 | `slots/<session id>/` | rating given out | which rater and code took the first or second rating of a recording |
 | `drafts/<rater>/` | rating code | autosaved scores, examples and comments; overwritten on every save |
-| `ratings/<rater>/` | rating code | the submission: scores, examples (a line's index, time and words, or a clip's start and end in seconds), comments, item order, which recording and transcript were used, plus the step 1 references |
+| `ratings/<rater>/` | rating code | the submission: scores, examples (a line's index, time and words, a clip's start and end in seconds, or a screenshot's moment in seconds), comments, item order, which recording and transcript were used, plus the step 1 references |
 
 A rating is a record in `store.py`'s sense: it points back at step 1, so `/api/ratings?format=csv` joins without a lookup, and the analysis database can be loaded from it (plan: [relational-fluency-rater#1](https://github.com/Cornell-AI-Ready-Workforce/relational-fluency-rater/pull/1)).
 

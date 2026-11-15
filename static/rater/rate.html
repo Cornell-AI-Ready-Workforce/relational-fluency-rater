@@ -186,6 +186,10 @@ button, input, select, textarea { font: inherit; color: inherit; }
 .clip-ctl { margin-left: auto; display: inline-flex; flex-wrap: wrap; gap: 8px; }
 .clip-tip { margin: -2px 0 0; font-size: 0.8125rem; color: var(--ink); }
 .clip-tip.warn { color: var(--warn); }
+.screen.snap::after { content: ""; position: absolute; inset: 0; background: #fff; opacity: 0; pointer-events: none; animation: snap .35s ease-out; }
+@keyframes snap { from { opacity: .7; } to { opacity: 0; } }
+.qs { display: flex; align-items: center; gap: 8px; }
+.shot-img { height: 54px; width: auto; border-radius: 4px; border: 1px solid var(--line); background: var(--screen); flex: none; }
 
 /* Transcript: one column, the time on the left jumps there */
 .transcript { overflow: hidden; display: flex; flex-direction: column; }
@@ -281,6 +285,7 @@ button, input, select, textarea { font: inherit; color: inherit; }
 .quotes .q { color: var(--ink); font-size: 0.75rem; line-height: 1.5rem; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
 .quotes .x { border: 0; background: transparent; color: var(--mark); cursor: pointer; width: 24px; height: 24px; border-radius: 4px; display: grid; place-items: center; }
 .quotes .x:hover { background: var(--surface); }
+.quotes .q.qs { display: flex; padding: 2px 0; }
 .submit-row { position: sticky; bottom: 0; margin-top: auto; background: var(--surface); border-top: 1px solid var(--line); padding: 12px 16px; display: flex; flex-wrap: wrap; align-items: center; gap: 8px 14px; border-radius: 0 0 var(--r) var(--r); z-index: 2; }
 .why { color: var(--muted); font-size: 0.8125rem; }
 
@@ -340,6 +345,7 @@ html:has(#tour[open]) { overflow: hidden; }
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { transition: none !important; scroll-behavior: auto !important; }
   .btn:active { transform: none; }
+  .screen.snap::after { animation: none; }
 }
 
 /* Forced colors (Windows contrast themes): let system colors through, keep state visible without color. */
@@ -532,6 +538,7 @@ h1, h2, h3 { letter-spacing: -0.011em; }
               <span class="clock mono" id="clock" aria-hidden="true">0:00 / 0:00</span>
               <span class="clip-ctl" id="clip-ctl" hidden>
                 <button class="btn" id="clip-cancel" type="button" hidden>Cancel<span class="sr"> clip</span></button>
+                <button class="btn markb" id="shot" type="button" hidden></button>
                 <button class="btn markb" id="period" type="button"></button>
               </span>
             </div>
@@ -551,7 +558,7 @@ h1, h2, h3 { letter-spacing: -0.011em; }
           <h2 class="card-h" id="rate-h"><span class="ic" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M4 7l2 2 3-4M4 16l2 2 3-4M13 7h7M13 16h7"/></svg></span>Questions</h2>
           <div class="rate-intro">
             <p>How often did the participant do each thing below? The participant is the person you are rating. The other speakers are characters.</p>
-            <p class="rule">If you pick 2 to 5, add at least one example: a line the participant said, or a clip of them speaking.</p>
+            <p class="rule" id="rule">If you pick 2 to 5, add at least one example: a line the participant said, or a clip of them speaking.</p>
           </div>
           <div class="where" aria-live="polite" aria-atomic="true">Question <b id="q-now">1</b> of <span id="q-total">5</span></div>
           <div class="items" id="items"></div>
@@ -623,6 +630,7 @@ h1, h2, h3 { letter-spacing: -0.011em; }
     back: '<svg class="ico" viewBox="0 0 16 16" aria-hidden="true"><path d="M10 3 5 8l5 5" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>',
     lock: '<svg class="ico" viewBox="0 0 16 16" aria-hidden="true"><rect x="3.5" y="7" width="9" height="6.5" rx="1.5" fill="none" stroke="currentColor" stroke-width="1.5"/><path d="M5.5 7V5.2a2.5 2.5 0 0 1 5 0V7" fill="none" stroke="currentColor" stroke-width="1.5"/></svg>',
     clip: '<svg class="ico" viewBox="0 0 16 16" aria-hidden="true"><path d="M2.5 4v8M13.5 4v8M4.5 8h7" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>',
+    shot: '<svg class="ico" viewBox="0 0 16 16" aria-hidden="true"><path d="M2.5 5.5h2.2l1-1.5h4.6l1 1.5h2.2v7h-11z" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/><circle cx="8" cy="8.8" r="2.1" fill="none" stroke="currentColor" stroke-width="1.5"/></svg>',
     stop: '<svg class="ico" viewBox="0 0 16 16" aria-hidden="true"><rect x="4" y="4" width="8" height="8" rx="1" fill="currentColor"/></svg>',
     play: '<svg class="ico" viewBox="0 0 16 16" aria-hidden="true"><path d="M4 2.5v11l9-5.5z" fill="currentColor"/></svg>',
     pause: '<svg class="ico" viewBox="0 0 16 16" aria-hidden="true"><path d="M4 2.5h3v11H4zM9 2.5h3v11H9z" fill="currentColor"/></svg>',
@@ -711,12 +719,14 @@ h1, h2, h3 { letter-spacing: -0.011em; }
   const selectable = (g, i) => !!g.turns[i] && g.turns[i].s === 'P' && !!g.turns[i].x;
   const whoOf = (g, tu) => tu.who;
 
-  /* ---------- Examples: one line (a turn index) or a clip ({ a, b } in seconds) ---------- */
-  const isRange = (e) => typeof e === 'object' && e !== null;
+  /* ---------- Examples: one line (a turn index), a clip ({ a, b } in seconds) or a screenshot ({ s } in seconds) ---------- */
+  const isRange = (e) => typeof e === 'object' && e !== null && 'a' in e;
+  const isShot = (e) => typeof e === 'object' && e !== null && 's' in e;
+  const isLine = (e) => typeof e === 'number';
   const lineEnd = (g, i) => { const nx = g.turns[i + 1]; return Math.min(nx ? nx.t : g.duration, g.turns[i].t + 15); };
-  const evStart = (g, e) => (isRange(e) ? e.a : g.turns[e].t);
-  const evEnd = (g, e) => (isRange(e) ? e.b : lineEnd(g, e));
-  const evKey = (e) => (isRange(e) ? 'r' + e.a + '-' + e.b : 'l' + e);
+  const evStart = (g, e) => (isRange(e) ? e.a : isShot(e) ? e.s : g.turns[e].t);
+  const evEnd = (g, e) => (isRange(e) ? e.b : isShot(e) ? e.s : lineEnd(g, e));
+  const evKey = (e) => (isRange(e) ? 'r' + e.a + '-' + e.b : isShot(e) ? 's' + e.s : 'l' + e);
   const sortEv = (g, list) => list.sort((x, y) => evStart(g, x) - evStart(g, y));
   // A line belongs to a clip when at least half a second of it falls inside the clip.
   const inClip = (g, i, e) => g.turns[i].t <= e.b - 0.5 && lineEnd(g, i) >= e.a + 0.5;
@@ -743,6 +753,7 @@ h1, h2, h3 { letter-spacing: -0.011em; }
         let e = null;
         if (x && Number.isInteger(x.line) && selectable(g, x.line)) e = x.line;
         else if (x && Array.isArray(x.clip) && x.clip.length === 2 && x.clip.every(Number.isFinite)) e = { a: x.clip[0], b: x.clip[1] };
+        else if (x && Number.isFinite(x.shot) && g.media && g.media.kind === 'video') e = { s: x.shot };
         if (e !== null && !seen.has(evKey(e))) { seen.add(evKey(e)); clean.push(e); }
       });
       out.sel[pos] = sortEv(g, clean);
@@ -794,7 +805,7 @@ h1, h2, h3 { letter-spacing: -0.011em; }
     const g = STAGES[i], st = S.st[i], scores = {}, examples = {};
     g.keys.forEach((key, pos) => {
       if (st.answers[pos]) scores[key] = +st.answers[pos];
-      const ex = (st.sel[pos] || []).map((e) => (isRange(e) ? { clip: [e.a, e.b] } : { line: e }));
+      const ex = (st.sel[pos] || []).map((e) => (isRange(e) ? { clip: [e.a, e.b] } : isShot(e) ? { shot: e.s } : { line: e }));
       if (ex.length) examples[key] = ex;
     });
     return { scores, examples, comments: { better: st.better, other: st.notable } };
@@ -873,9 +884,10 @@ h1, h2, h3 { letter-spacing: -0.011em; }
     return { cls: 'todo', sub: 'Not started' };
   };
   const quoteText = (g, i) => g.turns[i].x + (g.turns[i].note ? ' (' + g.turns[i].note + ')' : '');
-  const evLabel = (g, e) => (isRange(e) ? fmt(e.a) + '–' + fmt(e.b) : fmt(g.turns[e].t));
-  const evSpoken = (g, e) => (isRange(e) ? 'the clip ' + fmt(e.a) + ' to ' + fmt(e.b) : 'the line at ' + fmt(g.turns[e].t));
+  const evLabel = (g, e) => (isRange(e) ? fmt(e.a) + '–' + fmt(e.b) : isShot(e) ? fmt(e.s) : fmt(g.turns[e].t));
+  const evSpoken = (g, e) => (isRange(e) ? 'the clip ' + fmt(e.a) + ' to ' + fmt(e.b) : isShot(e) ? 'the screenshot at ' + fmt(e.s) : 'the line at ' + fmt(g.turns[e].t));
   const evText = (g, e) => {
+    if (isShot(e)) return 'Screenshot of the video';
     if (!isRange(e)) return quoteText(g, e);
     const ls = clipLines(g, e);
     const said = ls.filter((i) => g.turns[i].x).map((i) => g.turns[i].x);
@@ -883,7 +895,9 @@ h1, h2, h3 { letter-spacing: -0.011em; }
     const head = plural(ls.length, 'Clip with {n} participant line', 'Clip with {n} participant lines') + (untranscribed ? ' (' + plural(untranscribed, '{n} not transcribed', '{n} not transcribed') + ')' : '');
     return said.length ? head + ': ' + said.join(' … ') : head;
   };
-  // Add buttons, the strip and Add a video clip only show while the open question needs an example.
+  // An example as the lists show it: its words, and for a screenshot the still beside them.
+  const evHtml = (g, e) => (isShot(e) ? `<img class="shot-img" data-shot="${e.s}" alt="" hidden>` : '') + `<span>${esc(evText(g, e))}</span>`;
+  // Add buttons, the strip, Add a screenshot and Add a video clip only show while the open question needs an example.
   const toolsOn = () => { const st = T(), v = st.answers[st.active]; return !st.submitted && !!v && v !== '1'; };
   let annBuf = [], annTimer = 0;
   function announce(text) {
@@ -1042,6 +1056,8 @@ h1, h2, h3 { letter-spacing: -0.011em; }
       ? ICON.stop + `<span>End clip</span><span class="sr"> that started at ${fmt(pending.a)}</span>`
       : ICON.clip + `<span>Add a video clip</span><span class="sr"> to question ${st.active + 1}</span>`;
     $('clip-cancel').hidden = !pending;
+    $('shot').hidden = !!pending || !isVideo();
+    $('shot').innerHTML = ICON.shot + `<span>Add a screenshot</span><span class="sr"> to question ${st.active + 1}</span>`;
   }
   function cancelPending(msg) {
     if (!pending) return;
@@ -1096,6 +1112,63 @@ h1, h2, h3 { letter-spacing: -0.011em; }
     announce(`Added the clip ${fmt(a)} to ${fmt(b)} to question ${pos + 1}.`);
     afterExampleChange(pos);
   }
+  /* ---------- Screenshots: Add a screenshot keeps the moment the video is showing ({ s } in seconds).
+     The app stores the moment, not a picture; the small still beside it is drawn here, from the recording. ---------- */
+  const isVideo = () => { const g = G(); return !!g.media && g.media.kind === 'video'; };
+  const stills = {}; // recording code + ':' + seconds -> a JPEG data URL, kept in this page only
+  const stillKey = (g, s) => g.code + ':' + s;
+  function frameOf(v) {
+    if (!v.videoWidth || v.readyState < 2) return '';
+    try {
+      const c = document.createElement('canvas');
+      c.width = 240; c.height = Math.round(240 * v.videoHeight / v.videoWidth);
+      c.getContext('2d').drawImage(v, 0, 0, c.width, c.height);
+      return c.toDataURL('image/jpeg', 0.7);
+    } catch (e) { return ''; }
+  }
+  // A second, silent player finds the stills the main one didn't take (after a reload), one at a time.
+  let grab = null, grabUrl = '', grabChain = Promise.resolve();
+  function stillAt(g, s) {
+    const key = stillKey(g, s), url = g.media.url;
+    grabChain = grabChain.then(() => new Promise((resolve) => {
+      if (stills[key]) { resolve(); return; }
+      if (!grab) { grab = document.createElement('video'); grab.muted = true; grab.preload = 'auto'; grab.playsInline = true; }
+      const done = () => { clearTimeout(timer); grab.removeEventListener('seeked', seeked); grab.removeEventListener('loadeddata', go); grab.removeEventListener('error', done); resolve(); };
+      const seeked = () => { const u = frameOf(grab); if (u) stills[key] = u; done(); };
+      const go = () => { grab.addEventListener('seeked', seeked); grab.currentTime = s; };
+      const timer = setTimeout(done, 8000);
+      grab.addEventListener('error', done);
+      if (grabUrl !== url) { grabUrl = url; grab.addEventListener('loadeddata', go); grab.src = url; grab.load(); } else go();
+    }));
+    return grabChain;
+  }
+  function fillShots(root) {
+    const g = G();
+    if (!g.media) return;
+    root.querySelectorAll('img[data-shot]').forEach((img) => {
+      const s = +img.dataset.shot, key = stillKey(g, s);
+      const show = () => { if (stills[key]) { img.src = stills[key]; img.hidden = false; } };
+      if (stills[key]) show(); else stillAt(g, s).then(show);
+    });
+  }
+  $('shot').addEventListener('click', () => {
+    const g = G(), st = T(), pos = st.active;
+    if (st.submitted || pending || !isVideo()) return;
+    const s = Math.round(Math.min(g.duration, Math.max(0, st.t)) * 10) / 10;
+    const list = st.sel[pos] || (st.sel[pos] = []);
+    if (list.some((x) => isShot(x) && x.s === s)) {
+      const msg = `The screenshot at ${fmt(s)} is already an example for question ${pos + 1}.`;
+      tip(msg, true); announce(msg); return;
+    }
+    const still = frameOf(media);
+    if (still) stills[stillKey(g, s)] = still;
+    list.push({ s }); sortEv(g, list);
+    const scr = $('screen');
+    scr.classList.remove('snap'); void scr.offsetWidth; scr.classList.add('snap');
+    tip(`Screenshot at ${fmt(s)} added to question ${pos + 1}.`);
+    announce(`Added the screenshot at ${fmt(s)} to question ${pos + 1}.`);
+    afterExampleChange(pos);
+  });
   function toggleLine(pos, k) {
     const g = G(), st = T();
     if (st.submitted || pos == null || pos >= NQ() || !selectable(g, k)) return;
@@ -1148,11 +1221,11 @@ h1, h2, h3 { letter-spacing: -0.011em; }
   trScroll.addEventListener('focusout', (e) => { if (!trScroll.contains(e.relatedTarget)) trHold = false; });
   function updateRows() {
     const g = G(), st = T(), act = st.active;
-    const mine = new Set((st.sel[act] || []).filter((e) => !isRange(e)));
+    const mine = new Set((st.sel[act] || []).filter(isLine));
     const others = {};
     Object.keys(st.sel).forEach((p) => {
       if (+p === act) return;
-      (st.sel[p] || []).forEach((e) => { if (!isRange(e)) (others[e] = others[e] || []).push(+p + 1); });
+      (st.sel[p] || []).forEach((e) => { if (isLine(e)) (others[e] = others[e] || []).push(+p + 1); });
     });
     $('tr-list').classList.toggle('tools-off', !toolsOn());
     $('tr-list').querySelectorAll('.turn').forEach((li) => {
@@ -1186,6 +1259,7 @@ h1, h2, h3 { letter-spacing: -0.011em; }
   function loadMedia() {
     const g = G();
     $('screen').classList.toggle('audio', !g.media || g.media.kind === 'audio');
+    $('rule').textContent = 'If you pick 2 to 5, add at least one example: a line the participant said, ' + (isVideo() ? 'a clip of them speaking, or a screenshot of the video.' : 'or a clip of them speaking.');
     $('play').disabled = !g.media;
     if (loadedCode === g.code) return;
     loadedCode = g.code; fixingLength = false;
@@ -1333,10 +1407,10 @@ h1, h2, h3 { letter-spacing: -0.011em; }
     const focusKey = box.contains(ae) ? ae.dataset.key || '' : null;
     let html = '';
     if (list.length) {
-      html += `<span class="lbl">Your examples</span><ol class="quotes">${list.map((e, k) => `<li><button type="button" class="go" data-k="${k}" data-key="go-${evKey(e)}">${evLabel(g, e)}<span class="sr">, play this example</span></button><span class="q">${esc(evText(g, e))}</span>${st.submitted ? '<span></span>' : `<button type="button" class="x" data-k="${k}" data-key="x-${evKey(e)}" aria-label="Remove ${evSpoken(g, e)} from question ${pos + 1}">${ICON.x}</button>`}</li>`).join('')}</ol>`;
+      html += `<span class="lbl">Your examples</span><ol class="quotes">${list.map((e, k) => `<li><button type="button" class="go" data-k="${k}" data-key="go-${evKey(e)}">${evLabel(g, e)}<span class="sr">${isShot(e) ? ', show this moment' : ', play this example'}</span></button><span class="q${isShot(e) ? ' qs' : ''}">${evHtml(g, e)}</span>${st.submitted ? '<span></span>' : `<button type="button" class="x" data-k="${k}" data-key="x-${evKey(e)}" aria-label="Remove ${evSpoken(g, e)} from question ${pos + 1}">${ICON.x}</button>`}</li>`).join('')}</ol>`;
     }
     if (v === '1' && !list.length) html += stash[S.cur + ':' + pos] ? '<p class="hint quiet">No example needed for 1. Your examples come back if you pick 2 to 5 again.</p>' : '<p class="hint quiet">No example needed for 1.</p>';
-    else if (v && list.length < needed(v)) html += `<p class="hint">Add an example: press Add next to a participant line in the transcript. If it's more about how they said it, like their tone, go to where the moment starts and press Add a video clip under the video.</p>`;
+    else if (v && list.length < needed(v)) html += `<p class="hint">Add an example: press Add next to a participant line in the transcript. If it's more about how they said it, like their tone, go to where the moment starts and press Add a video clip under the video.${isVideo() ? " If it's something you can see, like their expression or posture, pause on that moment and press Add a screenshot." : ''}</p>`;
     if (questionDone(pos) && !st.submitted) {
       const nxt = nextOpenQuestion(pos);
       html += nxt >= 0
@@ -1345,6 +1419,7 @@ h1, h2, h3 { letter-spacing: -0.011em; }
     }
     box.innerHTML = html;
     box.hidden = !html;
+    fillShots(box);
     if (focusKey !== null) {
       const same = focusKey && box.querySelector(`[data-key="${focusKey}"]`);
       const target = same || box.querySelector('.x, .go') || box.querySelector('.next-q') || $('qh-' + pos);
@@ -1383,7 +1458,8 @@ h1, h2, h3 { letter-spacing: -0.011em; }
     const go = e.target.closest('.go');
     if (go) {
       const pos = +go.closest('.item').dataset.pos, ev = (T().sel[pos] || [])[+go.dataset.k];
-      if (ev !== undefined) { seek(evStart(G(), ev) - (isRange(ev) ? 0 : 1)); if (!playing) play(); }
+      if (ev !== undefined && isShot(ev)) { if (playing) pause(); seek(ev.s); }
+      else if (ev !== undefined) { seek(evStart(G(), ev) - (isRange(ev) ? 0 : 1)); if (!playing) play(); }
       return;
     }
     const x = e.target.closest('.x');
@@ -1474,11 +1550,12 @@ h1, h2, h3 { letter-spacing: -0.011em; }
     $('rv-list').innerHTML = order().map((bank, pos) => {
       const v = st.answers[pos], list = st.sel[pos] || [];
       const ex = list.length
-        ? `<ul class="ex">${list.map((e) => `<li><span class="t mono">${evLabel(g, e)}</span><span>${esc(evText(g, e))}</span></li>`).join('')}</ul>`
+        ? `<ul class="ex">${list.map((e) => `<li><span class="t mono">${evLabel(g, e)}</span><span class="${isShot(e) ? 'qs' : ''}">${evHtml(g, e)}</span></li>`).join('')}</ul>`
         : `<span class="none">${v === '1' ? 'No example needed for 1.' : 'No examples.'}</span>`;
       const change = mode === 'review' ? `<button class="link" type="button" data-change="${pos}">Change<span class="sr"> your answer to question ${pos + 1}</span></button>` : '';
       return `<li class="rv-item"><span class="n">${pos + 1}</span><span class="q">${esc(g.items[bank])}</span><span class="score"><span class="score-pill">${v ? v + ' · ' + ANCHORS[v] : 'Not answered'}</span></span>${ex}<span class="act">${change}</span></li>`;
     }).join('');
+    fillShots($('rv-list'));
   }
   $('rv-list').addEventListener('click', (e) => {
     const b = e.target.closest('[data-change]');
@@ -1570,7 +1647,7 @@ h1, h2, h3 { letter-spacing: -0.011em; }
     { target: '.player', title: 'Watch the conversation', body: (N > 1 ? `You'll rate ${WORDS[N] || N} recordings, one at a time. ` : '') + "Press Play or click the video to start. The diamonds on the bar show each time the participant speaks. Click one, or anywhere on the bar, to jump there." },
     { target: '.transcript', title: 'Follow along in the transcript', body: "Every line appears here with the time it was said. Click a time to play from that line. The participant is the person you're rating, and the other speakers are characters." },
     { target: '#items', title: 'Answer one question at a time', body: 'Pick how often the participant did each thing, from 1 (Never) to 5 (Consistently). When a question is done, press Next question.' },
-    { target: '.watch', title: 'Add an example for scores of 2 to 5', body: "Once you pick 2 to 5, show where you saw it. Press Add next to something the participant said. If it's more about how they said it, like their tone or a pause, go to where the moment starts, press Add a video clip, then End clip.", demo: true },
+    { target: '.watch', title: 'Add an example for scores of 2 to 5', body: "Once you pick 2 to 5, show where you saw it. Press Add next to something the participant said. If it's more about how they said it, like their tone or a pause, go to where the moment starts, press Add a video clip, then End clip. If it's something you can see, like their expression, pause on it and press Add a screenshot.", demo: true },
     { target: '.submit-row', title: 'Review, then submit', body: 'When every question has a score and the examples it needs, press Review answers to check your work before you submit. ' + (N > 1 ? `Recordings open one at a time, and your completion code appears after recording ${N}.` : 'Your completion code appears after you submit.') },
   ];
   const tour = $('tour');
@@ -1607,7 +1684,7 @@ h1, h2, h3 { letter-spacing: -0.011em; }
     $('tour-count').textContent = `${tourStep + 1} of ${TOUR.length}`;
     const demo = $('tour-demo');
     demo.hidden = !step.demo;
-    demo.innerHTML = step.demo ? `<span class="add-btn">${ICON.plus}<span>Add</span></span><span class="btn markb">${ICON.clip}<span>Add a video clip</span></span>` : '';
+    demo.innerHTML = step.demo ? `<span class="add-btn">${ICON.plus}<span>Add</span></span><span class="btn markb">${ICON.shot}<span>Add a screenshot</span></span><span class="btn markb">${ICON.clip}<span>Add a video clip</span></span>` : '';
     $('tour-back').hidden = tourStep === 0;
     $('tour-next').textContent = last ? 'Start rating' : 'Next';
     showTarget();

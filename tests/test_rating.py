@@ -348,10 +348,20 @@ def test_draft_examples_and_submit_once_in_order(client):
     back = client.get(f"/api/rate/{codes[0]}").json()["draft"]
     assert back["scores"] == {k0: 3} and back["examples"] == {k0: [{"line": 0}, {"clip": [21.5, 33.0]}]}
     assert back["comments"]["better"] == "x"
+    # a screenshot is a moment of the video, so only a recording with a picture takes one
+    shot = client.put(f"/api/rate/{codes[0]}/draft", json={"scores": {k0: 3}, "examples": {k0: [{"shot": 12.34}]}})
+    if d["media"] and d["media"]["kind"] == "video":
+        assert shot.status_code == 200
+        assert client.get(f"/api/rate/{codes[0]}").json()["draft"]["examples"] == {k0: [{"shot": 12.3}]}
+    else:
+        assert shot.status_code == 400
     for bad in ({"scores": {k0: 9}}, {"scores": {"made_up": 1}},
                 {"scores": {}, "examples": {k0: [{"line": 1}]}},   # a character's line
                 {"scores": {}, "examples": {k0: [{"line": 3}]}},   # a participant line with no words
                 {"scores": {}, "examples": {k0: [{"clip": [10, 10.5]}]}},
+                {"scores": {}, "examples": {k0: [{"shot": -1}]}},
+                {"scores": {}, "examples": {k0: [{"shot": "12"}]}},
+                {"scores": {}, "examples": {k0: [{"shot": 3, "line": 0}]}},
                 {"scores": {}, "examples": {k0: ["anything"]}}):
         assert client.put(f"/api/rate/{codes[0]}/draft", json=bad).status_code == 400, bad
     # submit: incomplete, or a 2-5 without an example, is refused
@@ -416,3 +426,14 @@ def test_item_order_is_mixed_and_fixed_per_rater_and_code():
     assert sorted(keys) == sorted(k for k, _, _ in items.ITEMS["teamwork"])
     assert order == rating.item_order("R-07", "RC-0123456789", "teamwork")
     assert any(rating.item_order(f"R-{n:02d}", "RC-0123456789", "teamwork") != order for n in range(5))
+
+
+def test_a_screenshot_is_an_example_only_when_the_recording_is_a_video():
+    lines = {0: {"t": 1.0, "text": "hello"}}
+    ok = rating.validate_submission({"scores": {"a": 4}, "examples": {"a": [{"shot": 7.26}]}},
+                                    keys=["a"], lines=lines, complete=True, video=True)
+    assert ok[1] == {"a": [{"shot": 7.3}]}
+    for video, shot in ((False, 7.2), (True, True), (True, 5 * 3600)):
+        with pytest.raises(rating.RatingError):
+            rating.validate_submission({"scores": {"a": 4}, "examples": {"a": [{"shot": shot}]}},
+                                       keys=["a"], lines=lines, complete=True, video=video)
